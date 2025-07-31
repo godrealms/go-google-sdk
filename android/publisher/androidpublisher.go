@@ -25,7 +25,7 @@ func (s *Service) VerifyPurchase(packageName, productId, purchaseToken string) (
 		return purchase, nil
 	}
 
-	return nil, fmt.Errorf("purchase not valid")
+	return purchase, fmt.Errorf("purchase not valid")
 }
 
 func (s *Service) VerifySubscriptions(packageName, subscriptionId, purchaseToken string) (*androidpublisher.SubscriptionPurchase, error) {
