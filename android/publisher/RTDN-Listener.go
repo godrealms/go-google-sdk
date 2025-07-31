@@ -49,7 +49,7 @@ type SubscriptionNotification struct {
 	SubscriptionId string `json:"subscriptionId"` // 所购买订阅的商品 ID（例如“monthly001”）。
 }
 
-func (n *SubscriptionNotification) Process(packName string) error {
+func (n *SubscriptionNotification) Process() error {
 	return nil
 }
 
@@ -89,7 +89,7 @@ func (n *TestNotification) Process() error {
 //			notification.OneTimeProductNotification.Process()
 //		}
 //		if notification.SubscriptionNotification != nil { // 订阅通知处理
-//			err = notification.SubscriptionNotification.Process(notification.PackageName)
+//			err = notification.SubscriptionNotification.Process()
 //			if err != nil {
 //				msg.Nack() // 否定确认
 //				return
