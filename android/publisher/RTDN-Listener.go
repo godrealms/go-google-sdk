@@ -51,106 +51,6 @@ type SubscriptionNotification struct {
 }
 
 func (n *SubscriptionNotification) Process(packName string) error {
-	//client, err := NewAndroidPublisherClient(nil)
-	//if err != nil {
-	//	return fmt.Errorf("NewAndroidPublisherClient() error: %v", err)
-	//}
-	//purchase, err := client.Purchases.Subscriptions.Get(packName, n.SubscriptionId, n.PurchaseToken).Do()
-	//if err != nil {
-	//	return fmt.Errorf("GooglePlaySubscribe Get err: %v", err)
-	//}
-	//
-	//// 获取订阅信息
-	//subQuery, subModel := gplus.NewQuery[models.Subscriptions]()
-	//subQuery.Eq(&subModel.TransactionID, n.PurchaseToken)
-	//subQuery.Eq(&subModel.Platform, constant.TRANSACTION_SUBSCRIPTIONS_GATEWAY_GOOGLE)
-	//subQuery.OrderByDesc(&subModel.CreatedAt)
-	//subscriptions, db := gplus.SelectOne[models.Subscriptions](subQuery)
-	//if db.Error != nil {
-	//	return fmt.Errorf("获取订阅信息 err: %v", db.Error)
-	//}
-	//
-	//// 获取用户信息
-	//userQuery, userModel := gplus.NewQuery[models.Users]()
-	//userQuery.Eq(&userModel.UserId, subscriptions.UserID)
-	//user, db := gplus.SelectOne[models.Users](userQuery)
-	//if db.Error != nil {
-	//	return fmt.Errorf("获取用户信息 err: %v", db.Error)
-	//}
-	//
-	//switch n.NotificationType {
-	//case 1: // SUBSCRIPTION_RECOVERED - 从账号保留状态恢复了订阅。
-	//	expiryTime := time.UnixMilli(purchase.ExpiryTimeMillis)
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = true           // 更新订阅状态
-	//case 2: // SUBSCRIPTION_RENEWED - 续订了处于活动状态的订阅。
-	//	expiryTime := time.UnixMilli(purchase.ExpiryTimeMillis)
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//case 3: // SUBSCRIPTION_CANCELED - 自愿或非自愿地取消了订阅。如果是自愿取消，在用户取消时发送。
-	//	subscriptions.IsActive = false // 更新订阅状态
-	//case 4: // SUBSCRIPTION_PURCHASED - 购买了新的订阅。
-	//	expiryTime := time.UnixMilli(purchase.ExpiryTimeMillis)
-	//	subscriptions.PurchaseDate = time.Now() // 更新订阅购买时间
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = true           // 更新订阅状态
-	//case 5: // SUBSCRIPTION_ON_HOLD - 订阅已进入账号保留状态（如果已启用）。
-	//	expiryTime := time.Now()
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = false          // 更新订阅状态
-	//case 6: // SUBSCRIPTION_IN_GRACE_PERIOD - 订阅已进入宽限期（如果已启用）。
-	//	expiryTime := time.Now()
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = false          // 更新订阅状态
-	//case 7: // SUBSCRIPTION_RESTARTED - 用户已通过 Play > 账号 > 订阅恢复了订阅。订阅已取消，但在用户恢复时尚未到期。如需了解详情，请参阅恢复。
-	//	expiryTime := time.UnixMilli(purchase.ExpiryTimeMillis)
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = false          // 更新订阅状态
-	//case 8: // SUBSCRIPTION_PRICE_CHANGE_CONFIRMED - 用户已成功确认订阅价格变动。
-	//	expiryTime := time.Now()
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = false          // 更新订阅状态
-	//case 9: // SUBSCRIPTION_DEFERRED - 订阅的续订时间点已延期。
-	//	expiryTime := time.Now()
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = false          // 更新订阅状态
-	//case 10: // SUBSCRIPTION_PAUSED - 订阅已暂停。
-	//	expiryTime := time.Now()
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = false          // 更新订阅状态
-	//case 11: // SUBSCRIPTION_PAUSE_SCHEDULE_CHANGED - 订阅暂停计划已更改。
-	//	expiryTime := time.Now()
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = false          // 更新订阅状态
-	//case 12: // SUBSCRIPTION_REVOKED - 用户在到期时间之前已撤消订阅。
-	//	expiryTime := time.UnixMilli(purchase.ExpiryTimeMillis)
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = true           // 更新订阅状态
-	//case 13: // SUBSCRIPTION_EXPIRED - 订阅已到期。
-	//	expiryTime := time.Now()
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = false          // 更新订阅状态
-	//case 20: // SUBSCRIPTION_PENDING_PURCHASE_CANCELED - 待处理的交易项订阅已取消。
-	//	expiryTime := time.Now()
-	//	subscriptions.ExpiresDate = &expiryTime // 更新订阅过期时间
-	//	subscriptions.IsActive = false          // 更新订阅状态
-	//}
-	//
-	//// 更新自动续订状态
-	//subscriptions.AutoRenewStatus = &purchase.AutoRenewing
-	//
-	//// 更新数据库订阅数据
-	//db = gplus.UpdateById[models.Subscriptions](subscriptions, gplus.Select("expires_date", "is_active"))
-	//if db.Error != nil {
-	//	return fmt.Errorf("更新数据库订阅数据 err: %v", db.Error)
-	//}
-	//
-	//// 更新Redis会员到期时间
-	//key := fmt.Sprintf(constant.RedisKeyUserMember, user.UserId)
-	//err = database.GetRedis().Set(key, strconv.FormatInt(subscriptions.ExpiresDate.Unix(), 10))
-	//if err != nil {
-	//	return fmt.Errorf("更新Redis会员到期时间 err: %v", err)
-	//}
-
 	return nil
 }
 
@@ -165,8 +65,8 @@ type TestNotification struct {
 	Version string `json:"version"` // 此通知的版本。最初，此值为“1.0”。此版本与其他版本字段不同。
 }
 
-func (n *TestNotification) Process() {
-
+func (n *TestNotification) Process() error {
+	return nil
 }
 
 // StartSubscriptionMonitor 启动订阅监控器 Set your Google Cloud project ID and subscription ID
