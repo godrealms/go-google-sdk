@@ -3,6 +3,7 @@ package publisher
 import (
 	"cloud.google.com/go/pubsub"
 	"context"
+	"google.golang.org/api/option"
 	"log"
 )
 
@@ -107,12 +108,22 @@ func StartSubscriptionMonitor(config *Config, fun func(ctx context.Context, msg 
 	if config == nil {
 		return
 	}
-	// 设置 GOOGLE_APPLICATION_CREDENTIALS 环境变量，指向服务账号 JSON 文件
-	// export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your-service-account-key.json"
+
 	ctx := context.Background()
-	client, err := pubsub.NewClient(ctx, config.ProjectID) // Initialize Pub/Sub client
-	if err != nil {
-		return
+	var client *pubsub.Client
+	var err error
+	if config.JsonKey != "" {
+		client, err = pubsub.NewClient(ctx, config.ProjectID, option.WithCredentialsJSON([]byte(config.JsonKey))) // Initialize Pub/Sub client
+		if err != nil {
+			return
+		}
+	} else {
+		// 设置 GOOGLE_APPLICATION_CREDENTIALS 环境变量，指向服务账号 JSON 文件
+		// export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your-service-account-key.json"
+		client, err = pubsub.NewClient(ctx, config.ProjectID) // Initialize Pub/Sub client
+		if err != nil {
+			return
+		}
 	}
 	defer client.Close()
 
