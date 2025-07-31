@@ -3,8 +3,6 @@ package publisher
 import (
 	"cloud.google.com/go/pubsub"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"log"
 )
 
@@ -70,7 +68,42 @@ func (n *TestNotification) Process() error {
 }
 
 // StartSubscriptionMonitor 启动订阅监控器 Set your Google Cloud project ID and subscription ID
-func StartSubscriptionMonitor(config *Config) {
+//
+//	func(ctx context.Context, msg *pubsub.Message) {
+//		// Decode the Base64 encoded message
+//		decodedData, errs := base64.StdEncoding.DecodeString(string(msg.Data))
+//		if errs != nil {
+//			msg.Nack() // Negative acknowledgment
+//			return
+//		}
+//
+//		// Parse the JSON message
+//		var notification Notification
+//		if err = json.Unmarshal(decodedData, &notification); err != nil {
+//			msg.Nack() // 否定确认
+//			return
+//		}
+//
+//		if notification.OneTimeProductNotification != nil { // 一次性购买处理
+//			notification.OneTimeProductNotification.Process()
+//		}
+//		if notification.SubscriptionNotification != nil { // 订阅通知处理
+//			err = notification.SubscriptionNotification.Process(notification.PackageName)
+//			if err != nil {
+//				msg.Nack() // 否定确认
+//				return
+//			}
+//		}
+//		if notification.VoidedPurchaseNotification != nil { // 无效购买通知处理
+//			notification.TestNotification.Process()
+//		}
+//		if notification.TestNotification != nil { // 测试通知处理
+//			notification.TestNotification.Process()
+//		}
+//
+//		msg.Ack() // 确认消息
+//	})
+func StartSubscriptionMonitor(config *Config, fun func(ctx context.Context, msg *pubsub.Message)) {
 	if config == nil {
 		return
 	}
@@ -87,41 +120,7 @@ func StartSubscriptionMonitor(config *Config) {
 	sub := client.Subscription(config.SubscriptionID)
 
 	// Start receiving messages
-	err = sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
-		// Decode the Base64 encoded message
-		decodedData, errs := base64.StdEncoding.DecodeString(string(msg.Data))
-		if errs != nil {
-			msg.Nack() // Negative acknowledgment
-			return
-		}
-
-		// Parse the JSON message
-		var notification Notification
-		if err = json.Unmarshal(decodedData, &notification); err != nil {
-			msg.Nack() // 否定确认
-			return
-		}
-
-		if notification.OneTimeProductNotification != nil { // 一次性购买处理
-			notification.OneTimeProductNotification.Process()
-		}
-		if notification.SubscriptionNotification != nil { // 订阅通知处理
-			err = notification.SubscriptionNotification.Process(notification.PackageName)
-			if err != nil {
-				msg.Nack() // 否定确认
-				return
-			}
-		}
-		if notification.VoidedPurchaseNotification != nil { // 无效购买通知处理
-			notification.TestNotification.Process()
-		}
-		if notification.TestNotification != nil { // 测试通知处理\
-			notification.TestNotification.Process()
-		}
-
-		msg.Ack() // 确认消息
-	})
-	if err != nil {
+	if err = sub.Receive(ctx, fun); err != nil {
 		log.Fatalf("Failed to receive messages: %v", err)
 	}
 }
