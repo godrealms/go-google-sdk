@@ -655,7 +655,7 @@ go test -bench=. ./...
 
 - 🐛 [报告问题](https://github.com/godrealms/go-google-sdk/issues)
 - 💡 [功能请求](https://github.com/godrealms/go-google-sdk/discussions)
-- 📧 邮箱: support@godrealms.com
+- 📧 邮箱: support@godrealms.cn
 
 ## 相关资源
 
