@@ -66,6 +66,32 @@ func TestVerifyReturnsOrderForProductOrderID(t *testing.T) {
 	}
 }
 
+func TestVerifyReturnsOrderForSubscriptionOrderID(t *testing.T) {
+	t.Parallel()
+
+	const packageName = "com.example.app"
+	const orderID = "order-456"
+	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/orders/" + orderID
+
+	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
+	defer closeServer()
+
+	result, err := service.Verify(context.Background(), VerifyRequest{PackageName: packageName, OrderID: orderID, Type: VerifyTypeSubscription})
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if result.Type != VerifyTypeSubscription {
+		t.Fatalf("expected subscription type, got %s", result.Type)
+	}
+	order, ok := result.Raw.(*androidpublisher.Order)
+	if !ok {
+		t.Fatalf("expected order raw, got %T", result.Raw)
+	}
+	if order.OrderId != orderID {
+		t.Fatalf("expected order ID %q, got %q", orderID, order.OrderId)
+	}
+}
+
 func TestQueryPurchaseRequiresInput(t *testing.T) {
 	t.Parallel()
 
