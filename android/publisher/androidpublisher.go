@@ -43,6 +43,55 @@ func (s *Service) VerifySubscriptions(packageName, subscriptionId, purchaseToken
 	return purchase, fmt.Errorf("purchase not valid")
 }
 
+// RefundPurchase 退款一次性购买订单。
+//
+// 注意：当前 Android Publisher V3 客户端提供订单级退款接口，参数为 orderId。
+func (s *Service) RefundPurchase(ctx context.Context, packageName, orderID string) error {
+	if s == nil {
+		return errors.New("service is nil")
+	}
+	if s.Androidpublisher == nil {
+		return errors.New("android publisher service is nil")
+	}
+	if packageName == "" {
+		return errors.New("packageName is required")
+	}
+	if orderID == "" {
+		return errors.New("orderID is required")
+	}
+
+	if err := s.Androidpublisher.Orders.Refund(packageName, orderID).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("refund purchase failed: %w", err)
+	}
+
+	return nil
+}
+
+// RefundSubscription 退款订阅。
+func (s *Service) RefundSubscription(ctx context.Context, packageName, subscriptionID, purchaseToken string) error {
+	if s == nil {
+		return errors.New("service is nil")
+	}
+	if s.Androidpublisher == nil {
+		return errors.New("android publisher service is nil")
+	}
+	if packageName == "" {
+		return errors.New("packageName is required")
+	}
+	if subscriptionID == "" {
+		return errors.New("subscriptionID is required")
+	}
+	if purchaseToken == "" {
+		return errors.New("purchaseToken is required")
+	}
+
+	if err := s.Androidpublisher.Purchases.Subscriptions.Refund(packageName, subscriptionID, purchaseToken).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("refund subscription failed: %w", err)
+	}
+
+	return nil
+}
+
 func NewServiceWithTokenSource(ctx context.Context, config *oauth2.Config, code string, opts ...oauth2.AuthCodeOption) (*Service, error) {
 	if config == nil {
 		return nil, errors.New("config is nil")
