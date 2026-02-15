@@ -13,6 +13,44 @@ type Service struct {
 	Androidpublisher *androidpublisher.Service
 }
 
+type PurchaseQuery struct {
+	PackageName   string
+	ProductID     string
+	PurchaseToken string
+	OrderID       string
+}
+
+type SubscriptionQuery struct {
+	PackageName    string
+	SubscriptionID string
+	PurchaseToken  string
+	OrderID        string
+}
+
+func (s *Service) QueryPurchase(ctx context.Context, q PurchaseQuery) (*androidpublisher.Order, *androidpublisher.ProductPurchase, error) {
+	if s == nil || s.Androidpublisher == nil {
+		return nil, nil, errors.New("service is nil")
+	}
+	if q.PackageName == "" {
+		return nil, nil, errors.New("packageName is required")
+	}
+	if q.OrderID != "" {
+		order, err := s.Androidpublisher.Orders.Get(q.PackageName, q.OrderID).Context(ctx).Do()
+		if err != nil {
+			return nil, nil, err
+		}
+		return order, nil, nil
+	}
+	if q.ProductID == "" || q.PurchaseToken == "" {
+		return nil, nil, errors.New("productID and purchaseToken are required")
+	}
+	purchase, err := s.Androidpublisher.Purchases.Products.Get(q.PackageName, q.ProductID, q.PurchaseToken).Context(ctx).Do()
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, purchase, nil
+}
+
 func (s *Service) VerifyPurchase(packageName, productId, purchaseToken string) (*androidpublisher.ProductPurchase, error) {
 	// 验证购买
 	purchase, err := s.Androidpublisher.Purchases.Products.Get(packageName, productId, purchaseToken).Do()
