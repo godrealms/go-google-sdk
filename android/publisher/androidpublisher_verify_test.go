@@ -20,6 +20,26 @@ func TestVerifyRequestRequiresPackageName(t *testing.T) {
 	}
 }
 
+func TestVerifyRoutesToProduct(t *testing.T) {
+	t.Parallel()
+
+	const packageName = "com.example.app"
+	const productID = "product-1"
+	const token = "token-1"
+	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/purchases/products/" + productID + "/tokens/" + token
+
+	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"kind":"androidpublisher#productPurchase"}`)
+	defer closeServer()
+
+	result, err := service.Verify(context.Background(), VerifyRequest{PackageName: packageName, ProductID: productID, PurchaseToken: token})
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if result.Type != VerifyTypeProduct {
+		t.Fatalf("expected product type, got %s", result.Type)
+	}
+}
+
 func TestVerifyRoutesToSubscription(t *testing.T) {
 	t.Parallel()
 
