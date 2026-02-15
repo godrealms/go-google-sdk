@@ -202,12 +202,15 @@ handlePurchaseNotification(notification.OneTimeProductNotification)
 
 ### Google Play Publisher
 
-| 方法                    | 参数                                         | 返回值                                             | 描述        |
-|-----------------------|--------------------------------------------|-------------------------------------------------|-----------|
-| `VerifyPurchase`      | packageName, productId, purchaseToken      | `*androidpublisher.ProductPurchase, error`      | 验证一次性产品购买 |
+| 方法                | 参数                                             | 返回值                                             | 描述        |
+|-------------------|------------------------------------------------|-------------------------------------------------|-----------|
+| `VerifyPurchase`  | packageName, productId, purchaseToken          | `*androidpublisher.ProductPurchase, error`      | 验证一次性产品购买 |
 | `VerifySubscriptions` | packageName, subscriptionId, purchaseToken | `*androidpublisher.SubscriptionPurchase, error` | 验证订阅购买    |
-| `RefundPurchase`      | ctx, packageName, orderId                  | `error`                                          | 退款一次性订单    |
-| `RefundSubscription`  | ctx, packageName, subscriptionId, purchaseToken | `error`                                     | 退款订阅         |
+| `QueryPurchase`   | ctx, packageName, productId, purchaseToken or orderId | `*androidpublisher.ProductPurchase`/`*androidpublisher.Order` | 查询一次性购买 |
+| `QuerySubscription` | ctx, packageName, subscriptionId, purchaseToken or orderId | `*androidpublisher.SubscriptionPurchase`/`*androidpublisher.Order` | 查询订阅 |
+| `Verify`          | ctx, request                                   | `*VerifyResult`                                  | 统一校验入口 |
+| `RefundPurchase`  | ctx, packageName, orderId                      | `error`                                          | 退款一次性订单    |
+| `RefundSubscription` | ctx, packageName, subscriptionId, purchaseToken | `error`                                     | 退款订阅         |
 
 ### Google Pay Client
 
