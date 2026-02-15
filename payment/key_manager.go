@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+var newRequestWithContext = http.NewRequestWithContext
+
 // KeyManager 密钥管理器
 type KeyManager struct {
 	config *Config
@@ -35,6 +37,17 @@ type KeyManager struct {
 
 // NewKeyManager 创建密钥管理器
 func NewKeyManager(config *Config, logger logs.Logger) (*KeyManager, error) {
+	if config == nil {
+		return nil, errors.New("config is nil")
+	}
+	if logger == nil {
+		logger = logs.NewLogger(logs.LogLevelInfo, false)
+	}
+
+	if config.Timeout <= 0 {
+		config.Timeout = 30 * time.Second
+	}
+
 	km := &KeyManager{
 		config:   config,
 		logger:   logger,
@@ -102,26 +115,27 @@ func (km *KeyManager) loadPrivateKey() error {
 		return fmt.Errorf("failed to parse private key: %w", err)
 	}
 
-	km.logger.Info("Private key loaded successfully")
+	if km.logger != nil {
+		km.logger.Info("Private key loaded successfully")
+	}
 	return nil
 }
 
 // loadRootKeys 加载Google根密钥
 func (km *KeyManager) loadRootKeys(ctx context.Context) error {
-	km.mu.Lock()
-	defer km.mu.Unlock()
-
-	// 检查是否需要更新
+	km.mu.RLock()
 	if time.Since(km.lastUpdate) < 1*time.Hour && len(km.rootKeys) > 0 {
+		km.mu.RUnlock()
 		return nil
 	}
+	km.mu.RUnlock()
 
 	url := TestRootKeysURL
 	if km.config.Environment == EnvironmentProduction {
 		url = ProdRootKeysURL
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := newRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -143,8 +157,9 @@ func (km *KeyManager) loadRootKeys(ctx context.Context) error {
 
 	var rootKeysResponse struct {
 		Keys []struct {
-			KeyID     string `json:"keyId"`
-			KeyValue  string `json:"keyValue"`
+			KeyID    string `json:"keyId"`
+			KeyValue string `json:"keyValue"`
+			// Algorithm 字段目前未被使用，保留兼容性
 			Algorithm string `json:"algorithm"`
 		} `json:"keys"`
 	}
@@ -156,9 +171,15 @@ func (km *KeyManager) loadRootKeys(ctx context.Context) error {
 	// 解析密钥
 	newRootKeys := make(map[string]*ecdsa.PublicKey)
 	for _, key := range rootKeysResponse.Keys {
+		if key.KeyID == "" {
+			continue
+		}
+
 		publicKey, err := km.parsePublicKey(key.KeyValue)
 		if err != nil {
-			km.logger.Warn("Failed to parse public key", "keyId", key.KeyID, "error", err)
+			if km.logger != nil {
+				km.logger.Warn("Failed to parse public key", "keyId", key.KeyID, "error", err)
+			}
 			continue
 		}
 		newRootKeys[key.KeyID] = publicKey
@@ -168,10 +189,14 @@ func (km *KeyManager) loadRootKeys(ctx context.Context) error {
 		return errors.New("no valid root keys found")
 	}
 
+	km.mu.Lock()
+	defer km.mu.Unlock()
 	km.rootKeys = newRootKeys
 	km.lastUpdate = time.Now()
 
-	km.logger.Info("Root keys loaded successfully", "count", len(newRootKeys))
+	if km.logger != nil {
+		km.logger.Info("Root keys loaded successfully", "count", len(newRootKeys))
+	}
 	return nil
 }
 
@@ -202,6 +227,10 @@ func (km *KeyManager) GetPrivateKey() *ecdsa.PrivateKey {
 
 // GetRootKey 获取根密钥
 func (km *KeyManager) GetRootKey(keyID string) (*ecdsa.PublicKey, error) {
+	if keyID == "" {
+		return nil, errors.New("root key id is empty")
+	}
+
 	km.mu.RLock()
 	defer km.mu.RUnlock()
 
@@ -215,6 +244,10 @@ func (km *KeyManager) GetRootKey(keyID string) (*ecdsa.PublicKey, error) {
 
 // RefreshRootKeys 刷新根密钥
 func (km *KeyManager) RefreshRootKeys(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	km.mu.Lock()
 	km.lastUpdate = time.Time{} // 强制更新
 	km.mu.Unlock()

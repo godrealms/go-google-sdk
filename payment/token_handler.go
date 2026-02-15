@@ -8,6 +8,7 @@ import (
 	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,8 @@ import (
 	"math/big"
 	"time"
 )
+
+var newAESCipher = aes.NewCipher
 
 // TokenHandler Token处理器
 type TokenHandler struct {
@@ -26,6 +29,16 @@ type TokenHandler struct {
 
 // NewTokenHandler 创建Token处理器
 func NewTokenHandler(config *Config, keyManager *KeyManager, logger logs.Logger) (*TokenHandler, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+	if keyManager == nil {
+		return nil, fmt.Errorf("key manager is nil")
+	}
+	if logger == nil {
+		logger = logs.NewLogger(logs.LogLevelInfo, false)
+	}
+
 	return &TokenHandler{
 		config:     config,
 		keyManager: keyManager,
@@ -35,6 +48,13 @@ func NewTokenHandler(config *Config, keyManager *KeyManager, logger logs.Logger)
 
 // DecryptToken 解密Token
 func (th *TokenHandler) DecryptToken(ctx context.Context, encryptedTokenStr string) (*PaymentToken, error) {
+	if th == nil {
+		return nil, fmt.Errorf("token handler is nil")
+	}
+	if th.keyManager == nil {
+		return nil, fmt.Errorf("token handler is not initialized")
+	}
+
 	// 解析加密Token
 	var encryptedToken EncryptedToken
 	if err := json.Unmarshal([]byte(encryptedTokenStr), &encryptedToken); err != nil {
@@ -63,8 +83,23 @@ func (th *TokenHandler) DecryptToken(ctx context.Context, encryptedTokenStr stri
 		return nil, fmt.Errorf("failed to unmarshal payment token: %w", err)
 	}
 
-	// 设置过期时间
-	paymentToken.ExpiresAt = time.Now().Add(1 * time.Hour) // 默认1小时过期
+	if paymentToken.MessageExpiration != "" {
+		expiresAt, err := time.Parse(time.RFC3339, paymentToken.MessageExpiration)
+		if err != nil {
+			return nil, fmt.Errorf("invalid message expiration format: %w", err)
+		}
+		paymentToken.ExpiresAt = expiresAt
+	}
+
+	if paymentToken.ExpiresAt.IsZero() {
+		paymentToken.ExpiresAt = time.Now().Add(1 * time.Hour)
+	}
+
+	if time.Now().After(paymentToken.ExpiresAt) {
+		return nil, fmt.Errorf("token has expired")
+	}
+
+	paymentToken.DecryptedAt = time.Now()
 
 	th.logger.Debug("Token decrypted successfully")
 	return &paymentToken, nil
@@ -87,7 +122,10 @@ func (th *TokenHandler) verifySignature(ctx context.Context, token *EncryptedTok
 	}
 
 	// 构建签名数据
-	signatureData := th.buildSignatureData(token)
+	signatureData, err := th.buildSignatureData(token)
+	if err != nil {
+		return fmt.Errorf("failed to build signature data: %w", err)
+	}
 
 	// 验证ECDSA签名
 	signature, err := base64.StdEncoding.DecodeString(token.SignedMessage.Signature)
@@ -103,15 +141,15 @@ func (th *TokenHandler) verifySignature(ctx context.Context, token *EncryptedTok
 }
 
 // buildSignatureData 构建签名数据
-func (th *TokenHandler) buildSignatureData(token *EncryptedToken) []byte {
+func (th *TokenHandler) buildSignatureData(token *EncryptedToken) ([]byte, error) {
 	// 根据协议版本构建签名数据
 	switch token.ProtocolVersion {
 	case string(EcV1):
-		return th.buildECv1SignatureData(token)
+		return th.buildECv1SignatureData(token), nil
 	case string(EcV2):
-		return th.buildECv2SignatureData(token)
+		return th.buildECv2SignatureData(token), nil
 	default:
-		return nil
+		return nil, fmt.Errorf("unsupported protocol version: %s", token.ProtocolVersion)
 	}
 }
 
@@ -139,6 +177,11 @@ func (th *TokenHandler) buildECv2SignatureData(token *EncryptedToken) []byte {
 
 // verifyECDSASignature 验证ECDSA签名
 func (th *TokenHandler) verifyECDSASignature(publicKey *ecdsa.PublicKey, data, signature []byte) bool {
+	if publicKey == nil {
+		th.logger.Error("ECDSA public key is nil")
+		return false
+	}
+
 	// 计算数据哈希
 	hash := sha256.Sum256(data)
 
@@ -155,16 +198,28 @@ func (th *TokenHandler) verifyECDSASignature(publicKey *ecdsa.PublicKey, data, s
 
 // parseECDSASignature 解析ECDSA签名
 func (th *TokenHandler) parseECDSASignature(signature []byte) (*big.Int, *big.Int, error) {
-	// 这里需要实现DER格式签名的解析
-	// 简化实现，实际应该使用ASN.1解析
-	if len(signature) < 64 {
-		return nil, nil, errors.New("signature too short")
+	if len(signature) == 64 {
+		r := new(big.Int).SetBytes(signature[:32])
+		s := new(big.Int).SetBytes(signature[32:64])
+		if r.Sign() == 0 || s.Sign() == 0 {
+			return nil, nil, errors.New("invalid signature values")
+		}
+		return r, s, nil
 	}
 
-	r := new(big.Int).SetBytes(signature[:32])
-	s := new(big.Int).SetBytes(signature[32:64])
+	var sig struct {
+		R, S *big.Int
+	}
 
-	return r, s, nil
+	if _, err := asn1.Unmarshal(signature, &sig); err != nil {
+		return nil, nil, fmt.Errorf("failed to parse signature: %w", err)
+	}
+
+	if sig.R == nil || sig.S == nil || sig.R.Sign() == 0 || sig.S.Sign() == 0 {
+		return nil, nil, errors.New("invalid signature values")
+	}
+
+	return sig.R, sig.S, nil
 }
 
 // decryptData 解密数据
@@ -237,13 +292,27 @@ func (th *TokenHandler) parseEphemeralPublicKey(keyBytes []byte) (*ecdsa.PublicK
 
 // performECDH 执行ECDH密钥交换
 func (th *TokenHandler) performECDH(ephemeralPublicKey *ecdsa.PublicKey) ([]byte, error) {
+	if ephemeralPublicKey == nil {
+		return nil, errors.New("ephemeral public key is nil")
+	}
+
+	if ephemeralPublicKey.Curve == nil {
+		return nil, errors.New("ephemeral public key curve is nil")
+	}
+
 	privateKey := th.keyManager.GetPrivateKey()
 	if privateKey == nil {
 		return nil, errors.New("private key not available")
 	}
+	if privateKey.D == nil {
+		return nil, errors.New("private key scalar is nil")
+	}
 
 	// 执行ECDH
 	x, _ := ephemeralPublicKey.Curve.ScalarMult(ephemeralPublicKey.X, ephemeralPublicKey.Y, privateKey.D.Bytes())
+	if x == nil {
+		return nil, errors.New("ECDH produced nil shared secret")
+	}
 
 	// 返回共享密钥的X坐标
 	return x.Bytes(), nil
@@ -251,14 +320,25 @@ func (th *TokenHandler) performECDH(ephemeralPublicKey *ecdsa.PublicKey) ([]byte
 
 // deriveKeys 派生加密密钥
 func (th *TokenHandler) deriveKeys(sharedSecret, ephemeralPublicKey []byte) ([]byte, []byte, error) {
+	if len(sharedSecret) == 0 {
+		return nil, nil, errors.New("shared secret is empty")
+	}
+	if len(ephemeralPublicKey) == 0 {
+		return nil, nil, errors.New("ephemeral public key is empty")
+	}
+
 	// 使用HKDF派生密钥
 	// 这里简化实现，实际应该使用标准的HKDF
+	shared := make([]byte, len(sharedSecret))
+	copy(shared, sharedSecret)
 
 	// 构建info参数
-	info := append([]byte("Google"), ephemeralPublicKey...)
+	info := make([]byte, len([]byte("Google"))+len(ephemeralPublicKey))
+	copy(info, []byte("Google"))
+	copy(info[len([]byte("Google")):], ephemeralPublicKey)
 
 	// 派生32字节的加密密钥
-	h := hmac.New(sha256.New, sharedSecret)
+	h := hmac.New(sha256.New, shared)
 	h.Write(info)
 	h.Write([]byte{0x01})
 	encryptionKey := h.Sum(nil)
@@ -274,6 +354,9 @@ func (th *TokenHandler) deriveKeys(sharedSecret, ephemeralPublicKey []byte) ([]b
 
 // verifyMAC 验证MAC
 func (th *TokenHandler) verifyMAC(encryptedMessage, macKey []byte, expectedTag string) error {
+	if len(macKey) == 0 {
+		return errors.New("mac key is empty")
+	}
 	tag, err := base64.StdEncoding.DecodeString(expectedTag)
 	if err != nil {
 		return fmt.Errorf("failed to decode tag: %w", err)
@@ -294,12 +377,20 @@ func (th *TokenHandler) verifyMAC(encryptedMessage, macKey []byte, expectedTag s
 
 // decryptAES 解密AES数据
 func (th *TokenHandler) decryptAES(encryptedData, key []byte) ([]byte, error) {
+	if len(key) < aes.BlockSize {
+		return nil, errors.New("invalid AES key length")
+	}
+
 	if len(encryptedData) < aes.BlockSize {
 		return nil, errors.New("encrypted data too short")
 	}
 
+	if len(encryptedData)%aes.BlockSize != 0 {
+		return nil, errors.New("invalid ciphertext length")
+	}
+
 	// 创建AES密码器
-	block, err := aes.NewCipher(key[:32]) // 使用前32字节作为AES密钥
+	block, err := newAESCipher(key[:32]) // 使用前32字节作为AES-256密钥
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
@@ -326,7 +417,7 @@ func (th *TokenHandler) removePKCS7Padding(data []byte) ([]byte, error) {
 	}
 
 	paddingLength := int(data[len(data)-1])
-	if paddingLength > len(data) || paddingLength == 0 {
+	if paddingLength > aes.BlockSize || paddingLength > len(data) || paddingLength == 0 {
 		return nil, errors.New("invalid padding")
 	}
 
