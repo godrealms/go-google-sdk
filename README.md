@@ -206,6 +206,8 @@ handlePurchaseNotification(notification.OneTimeProductNotification)
 |-----------------------|--------------------------------------------|-------------------------------------------------|-----------|
 | `VerifyPurchase`      | packageName, productId, purchaseToken      | `*androidpublisher.ProductPurchase, error`      | 验证一次性产品购买 |
 | `VerifySubscriptions` | packageName, subscriptionId, purchaseToken | `*androidpublisher.SubscriptionPurchase, error` | 验证订阅购买    |
+| `RefundPurchase`      | ctx, packageName, orderId                  | `error`                                          | 退款一次性订单    |
+| `RefundSubscription`  | ctx, packageName, subscriptionId, purchaseToken | `error`                                     | 退款订阅         |
 
 ### Google Pay Client
 
