@@ -320,18 +320,20 @@ processPaymentToken(result)
 
 ## 更新日志
 
-### v0.0.2
+### v0.0.2（2026-02-15 16:55:22 +08:00 / `c77efc0`）
 
 - ✅ 新增 Android Publisher 退款接口：`RefundPurchase`（订单级）与 `RefundSubscription`（订阅）
 - ✅ 新增退款能力测试：参数校验、成功/失败分支、请求路径与方法校验
 - ✅ 更新 `README` 中 Google Play Publisher API 说明
+- 📌 发布提交：`c77efc027108b627afe15b253048c8ee928e7cb6`
 
-### v0.0.1
+### v0.0.1（2026-02-15 16:15:35 +08:00 / `9b72808`）
 
 - ✅ 支持 Android Publisher 模块的可观测性与可靠性增强
 - ✅ 支持使用 JSON 密钥初始化 Pub/Sub 客户端
 - ✅ 重构订阅监控与 RTDN 校验流程，提高稳定性
 - ✅ 完善支付模块测试覆盖，补齐 token 流程异常分支
+- 📌 发布提交：`9b72808b34b557bd1927e7b4a6615eb02505c47b`
 
 ### v0.0.0
 
