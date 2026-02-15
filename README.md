@@ -318,18 +318,22 @@ processPaymentToken(result)
 
 ## 更新日志
 
-### v0.0.0
+### v0.0.1
 
-- ✅ 新增 Google Pay 支付处理功能
-- ✅ ECDSA 签名验证
-- ✅ 智能密钥管理
-- ✅ 缓存机制优化
+- ✅ 支持 Android Publisher 模块的可观测性与可靠性增强
+- ✅ 支持使用 JSON 密钥初始化 Pub/Sub 客户端
+- ✅ 重构订阅监控与 RTDN 校验流程，提高稳定性
+- ✅ 完善支付模块测试覆盖，补齐 token 流程异常分支
 
 ### v0.0.0
 
 - ✅ Google Play Developer API 基础功能
 - ✅ 购买和订阅验证
 - ✅ 实时开发者通知支持
+- ✅ 新增 Google Pay 支付处理功能
+- ✅ ECDSA 签名验证
+- ✅ 智能密钥管理
+- ✅ 缓存机制优化
 
 ## 支持与反馈
 
