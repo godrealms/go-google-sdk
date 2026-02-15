@@ -3,9 +3,38 @@ package publisher
 import (
 	"cloud.google.com/go/pubsub"
 	"context"
+	"errors"
 	"google.golang.org/api/option"
-	"log"
+	"os"
 )
+
+type pubSubClient interface {
+	Subscription(id string) pubSubSubscription
+	Close() error
+}
+
+type pubSubSubscription interface {
+	Receive(context.Context, func(context.Context, *pubsub.Message)) error
+}
+
+type pubSubClientCreator func(context.Context, string, ...option.ClientOption) (pubSubClient, error)
+
+func createDefaultPubSubClient(ctx context.Context, projectID string, opts ...option.ClientOption) (pubSubClient, error) {
+	client, err := pubsub.NewClient(ctx, projectID, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &defaultPubSubClient{client}, nil
+}
+
+type defaultPubSubClient struct {
+	*pubsub.Client
+}
+
+func (c *defaultPubSubClient) Subscription(id string) pubSubSubscription {
+	return c.Client.Subscription(id)
+}
 
 type Notification struct {
 	Version                    string                      `json:"version"`
@@ -105,33 +134,63 @@ func (n *TestNotification) Process() error {
 //		msg.Ack() // 确认消息
 //	})
 func StartSubscriptionMonitor(config *Config, fun func(ctx context.Context, msg *pubsub.Message)) {
+	_ = StartSubscriptionMonitorWithContext(context.Background(), config, fun)
+}
+
+// StartSubscriptionMonitorWithContext 启动订阅监控器
+func StartSubscriptionMonitorWithContext(ctx context.Context, config *Config, fun func(ctx context.Context, msg *pubsub.Message)) error {
+	return startSubscriptionMonitorWithContext(ctx, config, fun, createDefaultPubSubClient)
+}
+
+func startSubscriptionMonitorWithContext(ctx context.Context, config *Config, fun func(ctx context.Context, msg *pubsub.Message), createClient pubSubClientCreator) error {
 	if config == nil {
-		return
+		return errors.New("config is nil")
+	}
+	if createClient == nil {
+		return errors.New("client creator is required")
+	}
+	if config.ProjectID == "" {
+		return errors.New("project ID is required")
+	}
+	if config.SubscriptionID == "" {
+		return errors.New("subscription ID is required")
+	}
+	if fun == nil {
+		return errors.New("message handler is required")
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	ctx := context.Background()
-	var client *pubsub.Client
-	var err error
+	opts := []option.ClientOption{}
 	if config.JsonKey != "" {
-		client, err = pubsub.NewClient(ctx, config.ProjectID, option.WithCredentialsJSON([]byte(config.JsonKey))) // Initialize Pub/Sub client
-		if err != nil {
-			return
-		}
-	} else {
-		// 设置 GOOGLE_APPLICATION_CREDENTIALS 环境变量，指向服务账号 JSON 文件
-		// export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your-service-account-key.json"
-		client, err = pubsub.NewClient(ctx, config.ProjectID) // Initialize Pub/Sub client
-		if err != nil {
-			return
+		if _, err := os.Stat(config.JsonKey); err == nil {
+			opts = append(opts, option.WithCredentialsFile(config.JsonKey))
+		} else {
+			opts = append(opts, option.WithCredentialsJSON([]byte(config.JsonKey)))
 		}
 	}
+
+	client, err := createClient(ctx, config.ProjectID, opts...)
+	if err != nil {
+		return err
+	}
+	if client == nil {
+		return errors.New("pubsub client is nil")
+	}
+
 	defer client.Close()
 
 	// Get the subscription
 	sub := client.Subscription(config.SubscriptionID)
+	if sub == nil {
+		return errors.New("pubsub subscription is nil")
+	}
 
 	// Start receiving messages
 	if err = sub.Receive(ctx, fun); err != nil {
-		log.Fatalf("Failed to receive messages: %v", err)
+		return err
 	}
+
+	return nil
 }

@@ -11,6 +11,10 @@ import (
 	"os"
 )
 
+var defaultHTTPClient = func(ctx context.Context) (*http.Client, error) {
+	return google.DefaultClient(ctx, androidpublisher.AndroidpublisherScope)
+}
+
 // NewClient Google客户端
 func NewClient(config any) (*http.Client, error) {
 	var jsonKey []byte
@@ -38,7 +42,7 @@ func NewClient(config any) (*http.Client, error) {
 		}
 	default:
 		ctx := context.Background()
-		client, err = google.DefaultClient(ctx, androidpublisher.AndroidpublisherScope)
+		client, err = defaultHTTPClient(ctx)
 		if err != nil {
 			return nil, err
 		}
