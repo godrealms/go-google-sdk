@@ -99,7 +99,7 @@ func (s *Service) Verify(ctx context.Context, req VerifyRequest) (*VerifyResult,
 
 	switch resolved {
 	case VerifyTypeSubscription:
-		_, purchase, err := s.QuerySubscription(ctx, SubscriptionQuery{
+		order, purchase, err := s.QuerySubscription(ctx, SubscriptionQuery{
 			PackageName:    req.PackageName,
 			SubscriptionID: req.SubscriptionID,
 			PurchaseToken:  req.PurchaseToken,
@@ -108,9 +108,12 @@ func (s *Service) Verify(ctx context.Context, req VerifyRequest) (*VerifyResult,
 		if err != nil {
 			return nil, err
 		}
+		if order != nil {
+			return &VerifyResult{Type: VerifyTypeSubscription, Raw: order}, nil
+		}
 		return &VerifyResult{Type: VerifyTypeSubscription, Raw: purchase}, nil
 	case VerifyTypeProduct:
-		_, purchase, err := s.QueryPurchase(ctx, PurchaseQuery{
+		order, purchase, err := s.QueryPurchase(ctx, PurchaseQuery{
 			PackageName:   req.PackageName,
 			ProductID:     req.ProductID,
 			PurchaseToken: req.PurchaseToken,
@@ -118,6 +121,9 @@ func (s *Service) Verify(ctx context.Context, req VerifyRequest) (*VerifyResult,
 		})
 		if err != nil {
 			return nil, err
+		}
+		if order != nil {
+			return &VerifyResult{Type: VerifyTypeProduct, Raw: order}, nil
 		}
 		return &VerifyResult{Type: VerifyTypeProduct, Raw: purchase}, nil
 	default:

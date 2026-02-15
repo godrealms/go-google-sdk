@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"google.golang.org/api/androidpublisher/v3"
 	"google.golang.org/api/option"
 )
 
@@ -36,6 +37,32 @@ func TestVerifyRoutesToSubscription(t *testing.T) {
 	}
 	if result.Type != VerifyTypeSubscription {
 		t.Fatalf("expected subscription type, got %s", result.Type)
+	}
+}
+
+func TestVerifyReturnsOrderForProductOrderID(t *testing.T) {
+	t.Parallel()
+
+	const packageName = "com.example.app"
+	const orderID = "order-123"
+	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/orders/" + orderID
+
+	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
+	defer closeServer()
+
+	result, err := service.Verify(context.Background(), VerifyRequest{PackageName: packageName, OrderID: orderID, Type: VerifyTypeProduct})
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if result.Type != VerifyTypeProduct {
+		t.Fatalf("expected product type, got %s", result.Type)
+	}
+	order, ok := result.Raw.(*androidpublisher.Order)
+	if !ok {
+		t.Fatalf("expected order raw, got %T", result.Raw)
+	}
+	if order.OrderId != orderID {
+		t.Fatalf("expected order ID %q, got %q", orderID, order.OrderId)
 	}
 }
 
