@@ -9,8 +9,137 @@ import (
 	"google.golang.org/api/option"
 )
 
+var (
+	ErrMixedOrderProductInput      = errors.New("orderID cannot be combined with productID or purchaseToken")
+	ErrMixedOrderSubscriptionInput = errors.New("orderID cannot be combined with subscriptionID or purchaseToken")
+)
+
 type Service struct {
 	Androidpublisher *androidpublisher.Service
+}
+
+type PurchaseQuery struct {
+	PackageName   string
+	ProductID     string
+	PurchaseToken string
+	OrderID       string
+}
+
+type SubscriptionQuery struct {
+	PackageName    string
+	SubscriptionID string
+	PurchaseToken  string
+	OrderID        string
+}
+
+func (s *Service) QueryPurchase(ctx context.Context, q PurchaseQuery) (*androidpublisher.Order, *androidpublisher.ProductPurchase, error) {
+	if s == nil || s.Androidpublisher == nil {
+		return nil, nil, errors.New("service is nil")
+	}
+	if q.PackageName == "" {
+		return nil, nil, errors.New("packageName is required")
+	}
+	if q.OrderID != "" && (q.ProductID != "" || q.PurchaseToken != "") {
+		return nil, nil, ErrMixedOrderProductInput
+	}
+	if q.OrderID != "" {
+		order, err := s.Androidpublisher.Orders.Get(q.PackageName, q.OrderID).Context(ctx).Do()
+		if err != nil {
+			return nil, nil, err
+		}
+		return order, nil, nil
+	}
+	if q.ProductID == "" || q.PurchaseToken == "" {
+		return nil, nil, errors.New("productID and purchaseToken are required")
+	}
+	purchase, err := s.Androidpublisher.Purchases.Products.Get(q.PackageName, q.ProductID, q.PurchaseToken).Context(ctx).Do()
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, purchase, nil
+}
+
+func (s *Service) QuerySubscription(ctx context.Context, q SubscriptionQuery) (*androidpublisher.Order, *androidpublisher.SubscriptionPurchase, error) {
+	if s == nil || s.Androidpublisher == nil {
+		return nil, nil, errors.New("service is nil")
+	}
+	if q.PackageName == "" {
+		return nil, nil, errors.New("packageName is required")
+	}
+	if q.OrderID != "" && (q.SubscriptionID != "" || q.PurchaseToken != "") {
+		return nil, nil, ErrMixedOrderSubscriptionInput
+	}
+	if q.OrderID != "" {
+		order, err := s.Androidpublisher.Orders.Get(q.PackageName, q.OrderID).Context(ctx).Do()
+		if err != nil {
+			return nil, nil, err
+		}
+		return order, nil, nil
+	}
+	if q.SubscriptionID == "" || q.PurchaseToken == "" {
+		return nil, nil, errors.New("subscriptionID and purchaseToken are required")
+	}
+	purchase, err := s.Androidpublisher.Purchases.Subscriptions.Get(q.PackageName, q.SubscriptionID, q.PurchaseToken).Context(ctx).Do()
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, purchase, nil
+}
+
+func (s *Service) Verify(ctx context.Context, req VerifyRequest) (*VerifyResult, error) {
+	if s == nil || s.Androidpublisher == nil {
+		return nil, errors.New("service is nil")
+	}
+	if req.PackageName == "" {
+		return nil, errors.New("packageName is required")
+	}
+
+	resolved := req.Type
+	if resolved == "" {
+		switch {
+		case req.SubscriptionID != "":
+			resolved = VerifyTypeSubscription
+		case req.ProductID != "":
+			resolved = VerifyTypeProduct
+		case req.OrderID != "":
+			return nil, ErrRouteUnknown
+		default:
+			return nil, ErrRouteUnknown
+		}
+	}
+
+	switch resolved {
+	case VerifyTypeSubscription:
+		order, purchase, err := s.QuerySubscription(ctx, SubscriptionQuery{
+			PackageName:    req.PackageName,
+			SubscriptionID: req.SubscriptionID,
+			PurchaseToken:  req.PurchaseToken,
+			OrderID:        req.OrderID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if order != nil {
+			return &VerifyResult{Type: VerifyTypeSubscription, Raw: order}, nil
+		}
+		return &VerifyResult{Type: VerifyTypeSubscription, Raw: purchase}, nil
+	case VerifyTypeProduct:
+		order, purchase, err := s.QueryPurchase(ctx, PurchaseQuery{
+			PackageName:   req.PackageName,
+			ProductID:     req.ProductID,
+			PurchaseToken: req.PurchaseToken,
+			OrderID:       req.OrderID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if order != nil {
+			return &VerifyResult{Type: VerifyTypeProduct, Raw: order}, nil
+		}
+		return &VerifyResult{Type: VerifyTypeProduct, Raw: purchase}, nil
+	default:
+		return nil, ErrRouteUnknown
+	}
 }
 
 func (s *Service) VerifyPurchase(packageName, productId, purchaseToken string) (*androidpublisher.ProductPurchase, error) {
