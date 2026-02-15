@@ -9,6 +9,11 @@ import (
 	"google.golang.org/api/option"
 )
 
+var (
+	ErrMixedOrderProductInput      = errors.New("orderID cannot be combined with productID or purchaseToken")
+	ErrMixedOrderSubscriptionInput = errors.New("orderID cannot be combined with subscriptionID or purchaseToken")
+)
+
 type Service struct {
 	Androidpublisher *androidpublisher.Service
 }
@@ -34,6 +39,9 @@ func (s *Service) QueryPurchase(ctx context.Context, q PurchaseQuery) (*androidp
 	if q.PackageName == "" {
 		return nil, nil, errors.New("packageName is required")
 	}
+	if q.OrderID != "" && (q.ProductID != "" || q.PurchaseToken != "") {
+		return nil, nil, ErrMixedOrderProductInput
+	}
 	if q.OrderID != "" {
 		order, err := s.Androidpublisher.Orders.Get(q.PackageName, q.OrderID).Context(ctx).Do()
 		if err != nil {
@@ -57,6 +65,9 @@ func (s *Service) QuerySubscription(ctx context.Context, q SubscriptionQuery) (*
 	}
 	if q.PackageName == "" {
 		return nil, nil, errors.New("packageName is required")
+	}
+	if q.OrderID != "" && (q.SubscriptionID != "" || q.PurchaseToken != "") {
+		return nil, nil, ErrMixedOrderSubscriptionInput
 	}
 	if q.OrderID != "" {
 		order, err := s.Androidpublisher.Orders.Get(q.PackageName, q.OrderID).Context(ctx).Do()
