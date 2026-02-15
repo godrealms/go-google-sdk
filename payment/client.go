@@ -2,6 +2,8 @@ package payment
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/godrealms/go-google-sdk/utils/cache"
@@ -9,6 +11,8 @@ import (
 	"sync"
 	"time"
 )
+
+var createTokenHandler = NewTokenHandler
 
 // Client Google Pay客户端
 type Client struct {
@@ -26,6 +30,10 @@ type Client struct {
 
 // NewClient 创建新的客户端
 func NewClient(config *Config) (*Client, error) {
+	if config == nil {
+		config = DefaultConfig()
+	}
+
 	if err := config.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
@@ -47,6 +55,10 @@ func (c *Client) initialize() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.initialized {
+		return nil
+	}
+
 	// 初始化密钥管理器
 	keyManager, err := NewKeyManager(c.config, c.logger)
 	if err != nil {
@@ -55,7 +67,7 @@ func (c *Client) initialize() error {
 	c.keyManager = keyManager
 
 	// 初始化Token处理器
-	tokenHandler, err := NewTokenHandler(c.config, c.keyManager, c.logger)
+	tokenHandler, err := createTokenHandler(c.config, c.keyManager, c.logger)
 	if err != nil {
 		return fmt.Errorf("failed to create token handler: %w", err)
 	}
@@ -76,12 +88,17 @@ func (c *Client) initialize() error {
 
 // DecryptPaymentToken 解密支付Token
 func (c *Client) DecryptPaymentToken(ctx context.Context, encryptedToken string) (*PaymentToken, error) {
-	if !c.initialized {
+	c.mu.RLock()
+	initialized := c.initialized
+	c.mu.RUnlock()
+	if !initialized {
 		return nil, errors.New("client not initialized")
 	}
 
+	cacheKey := c.tokenCacheKey(encryptedToken)
+
 	// 检查缓存
-	if cached := c.cache.Get(encryptedToken); cached != nil {
+	if cached := c.cache.Get(cacheKey); cached != nil {
 		if token, ok := cached.(*PaymentToken); ok {
 			c.logger.Debug("Payment token found in cache")
 			return token, nil
@@ -96,7 +113,7 @@ func (c *Client) DecryptPaymentToken(ctx context.Context, encryptedToken string)
 	}
 
 	// 缓存结果
-	c.cache.Set(encryptedToken, token)
+	c.cache.Set(cacheKey, token)
 
 	c.logger.Info("Payment token decrypted successfully")
 	return token, nil
@@ -138,7 +155,10 @@ func (c *Client) GetPaymentMethodInfo(ctx context.Context, token *PaymentToken) 
 
 // Health 健康检查
 func (c *Client) Health(ctx context.Context) error {
-	if !c.initialized {
+	c.mu.RLock()
+	initialized := c.initialized
+	c.mu.RUnlock()
+	if !initialized {
 		return errors.New("client not initialized")
 	}
 
@@ -160,6 +180,10 @@ func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if !c.initialized {
+		return nil
+	}
+
 	if c.cache != nil {
 		c.cache.Close()
 	}
@@ -168,8 +192,22 @@ func (c *Client) Close() error {
 		c.keyManager.Close()
 	}
 
+	c.keyManager = nil
+	c.tokenHandler = nil
+	c.cache = nil
+	c.lastError = nil
+
 	c.initialized = false
 	c.logger.Info("Google Pay client closed")
 
 	return nil
+}
+
+func (c *Client) tokenCacheKey(encryptedToken string) string {
+	if encryptedToken == "" {
+		return ""
+	}
+
+	sum := sha256.Sum256([]byte(encryptedToken))
+	return hex.EncodeToString(sum[:])
 }
