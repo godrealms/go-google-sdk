@@ -129,6 +129,39 @@ func TestQueryRequiresFields(t *testing.T) {
 	}
 }
 
+func TestGetV2ReturnsProductPurchaseV2(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	const tok = "token-v2"
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/productsv2/tokens/" + tok
+
+	svc, closeFunc := newTestService(t, path, http.MethodGet, http.StatusOK, `{"kind":"androidpublisher#productPurchaseV2"}`)
+	defer closeFunc()
+
+	purchase, err := svc.GetV2(context.Background(), pkg, tok)
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if purchase == nil {
+		t.Fatalf("expected non-nil purchase")
+	}
+}
+
+func TestGetV2RequiresFields(t *testing.T) {
+	t.Parallel()
+
+	svc, closeFunc := newTestService(t, "/unused", http.MethodGet, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	if _, err := svc.GetV2(context.Background(), "", "tok"); err == nil {
+		t.Fatalf("expected error for missing packageName")
+	}
+	if _, err := svc.GetV2(context.Background(), "com.example", ""); err == nil {
+		t.Fatalf("expected error for missing purchaseToken")
+	}
+}
+
 func TestRefundSucceeds(t *testing.T) {
 	t.Parallel()
 

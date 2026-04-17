@@ -64,6 +64,21 @@ func (s *Service) Query(ctx context.Context, q PurchaseQuery) (*androidpublisher
 	return s.raw.Purchases.Products.Get(q.PackageName, q.ProductID, q.PurchaseToken).Context(ctx).Do()
 }
 
+// GetV2 retrieves a product purchase via the v2 endpoint. The v2 API does not
+// require productID in the path — only packageName and purchaseToken.
+func (s *Service) GetV2(ctx context.Context, packageName, purchaseToken string) (*androidpublisher.ProductPurchaseV2, error) {
+	if s == nil || s.raw == nil {
+		return nil, ErrServiceNil
+	}
+	if packageName == "" {
+		return nil, ErrMissingPackageName
+	}
+	if purchaseToken == "" {
+		return nil, ErrMissingPurchaseToken
+	}
+	return s.raw.Purchases.Productsv2.Getproductpurchasev2(packageName, purchaseToken).Context(ctx).Do()
+}
+
 func (s *Service) Refund(ctx context.Context, packageName, orderID string) error {
 	if s == nil || s.raw == nil {
 		return ErrServiceNil
