@@ -3,55 +3,46 @@ package publisher
 import (
 	"context"
 	"encoding/json"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/androidpublisher/v3"
 	"io"
 	"net/http"
 	"os"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/androidpublisher/v3"
 )
 
-// NewClient Google客户端
-func NewClient(config any) (*http.Client, error) {
+// NewClient creates an HTTP client from various credential sources.
+// Accepts a string path, []byte JSON, OAuth2 struct, io.Reader, or nil for ADC.
+func NewClient(ctx context.Context, config any) (*http.Client, error) {
 	var jsonKey []byte
 	var err error
-	var client *http.Client
 
-	switch config.(type) {
+	switch v := config.(type) {
 	case string:
-		// 读取服务账号 JSON 文件
-		jsonKey, err = os.ReadFile(config.(string))
+		jsonKey, err = os.ReadFile(v)
 		if err != nil {
 			return nil, err
 		}
 	case []byte:
-		jsonKey = config.([]byte)
+		jsonKey = v
 	case OAuth2, *OAuth2:
-		jsonKey, err = json.Marshal(config)
+		jsonKey, err = json.Marshal(v)
 		if err != nil {
 			return nil, err
 		}
 	case io.Reader:
-		jsonKey, err = io.ReadAll(config.(io.Reader))
+		jsonKey, err = io.ReadAll(v)
 		if err != nil {
 			return nil, err
 		}
 	default:
-		ctx := context.Background()
-		client, err = google.DefaultClient(ctx, androidpublisher.AndroidpublisherScope)
-		if err != nil {
-			return nil, err
-		}
-		return client, nil
+		return google.DefaultClient(ctx, androidpublisher.AndroidpublisherScope)
 	}
 
-	// 使用 JSON 密钥创建 Google OAuth2 凭据
-	credentials, err := google.CredentialsFromJSON(context.Background(), jsonKey, androidpublisher.AndroidpublisherScope)
+	credentials, err := google.CredentialsFromJSON(ctx, jsonKey, androidpublisher.AndroidpublisherScope)
 	if err != nil {
 		return nil, err
 	}
-
-	// 使用 TokenSource 创建 HTTP 客户端
-	client = oauth2.NewClient(context.Background(), credentials.TokenSource)
-	return client, nil
+	return oauth2.NewClient(ctx, credentials.TokenSource), nil
 }
