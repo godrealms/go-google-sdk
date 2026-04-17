@@ -38,6 +38,11 @@ type Environment string
 const (
 	EnvironmentSandbox    Environment = "sandbox"
 	EnvironmentProduction Environment = "production"
+
+	// Short aliases — prefer these in new code; the verbose names are kept
+	// for backwards compatibility.
+	Sandbox    = EnvironmentSandbox
+	Production = EnvironmentProduction
 )
 
 // DefaultConfig 默认配置

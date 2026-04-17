@@ -308,8 +308,8 @@ return
 // 访问卡片信息
 cardDetails := paymentToken.PaymentMethodDetails
 log.Printf("卡号: %s", cardDetails.PAN)
-log.Printf("过期月份: %s", cardDetails.ExpirationMonth)
-log.Printf("过期年份: %s", cardDetails.ExpirationYear)
+log.Printf("过期月份: %d", cardDetails.ExpirationMonth)
+log.Printf("过期年份: %d", cardDetails.ExpirationYear)
 log.Printf("卡片网络: %s", paymentToken.PaymentNetwork)
 
 // 3DS 认证信息
@@ -502,6 +502,19 @@ processPaymentToken(result)
 本项目采用 [Apache License 2.0](LICENSE) 开源协议。
 
 ## 更新日志
+
+### v0.0.7（2026-04-17）
+
+#### 变更要点（⚠️ Breaking）
+
+- 🔐 `payment` 模块重写至 Google Pay Payment Method Token 规范
+  - `EncryptedToken` 调整为真实线格式：`signature` 顶级字段，`signedMessage` 为 JSON 字符串；新增 `IntermediateSigningKey`（ECv2 中间签名密钥链）
+  - 签名数据改为 `toLengthValue`（4 字节 LE 长度 + 值）拼接 `Google || merchant:<id> || <protocol> || signedMessage`
+  - 密钥派生改为 HKDF-SHA256（`golang.org/x/crypto/hkdf`，info=`"Google"`，输出 64 字节）
+  - 对称解密由 CBC+PKCS7 改为 AES-256-CTR（零 IV）
+  - 根密钥解析支持 `keyExpiration`（毫秒 Unix 时间戳），自动过滤过期密钥
+  - `CardDetails.ExpirationMonth`/`ExpirationYear` 改为 `int`
+  - 新增 `Client.DecryptToken` 作为 `DecryptPaymentToken` 的别名；新增 `Sandbox` / `Production` 短别名
 
 ### v0.0.6（2026-04-17）
 

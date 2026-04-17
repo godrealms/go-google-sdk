@@ -2,7 +2,6 @@ package payment
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -284,22 +283,22 @@ func TestClientDecryptPaymentTokenReturnsWrappedErrorWhenDecryptFails(t *testing
 }
 
 func TestClientDecryptPaymentTokenCachesDecryptedToken(t *testing.T) {
-	rootKey := newECKeyPair(t)
+	rk := newECKeyPair(t)
 	leafKey := newECKeyPair(t)
-	encryptedToken := buildEncryptedTokenFromPayload(t, leafKey, rootKey, map[string]any{
+	encryptedToken := buildECv1Token(t, leafKey, rk, "merchant", map[string]any{
 		"paymentMethodType": "CARD",
-	}, EcV1, "root-1")
+	})
 
 	store := cache.NewMemoryCache(time.Minute)
 	keyManager := &KeyManager{
 		privateKey: leafKey,
-		rootKeys:   map[string]*ecdsa.PublicKey{"root-1": &rootKey.PublicKey},
+		rootKeys:   map[string]rootKey{"root-1": {PublicKey: &rk.PublicKey}},
 	}
 
 	c := &Client{
 		initialized:  true,
 		cache:        store,
-		tokenHandler: &TokenHandler{keyManager: keyManager, logger: logs.NewLogger(logs.LogLevelInfo, false)},
+		tokenHandler: &TokenHandler{config: &Config{MerchantID: "merchant"}, keyManager: keyManager, logger: logs.NewLogger(logs.LogLevelInfo, false)},
 		logger:       logs.NewLogger(logs.LogLevelInfo, false),
 	}
 
@@ -354,7 +353,7 @@ func TestClientHealthSurfacesTokenHandlerFailure(t *testing.T) {
 		initialized: true,
 		keyManager: &KeyManager{
 			privateKey: leaf,
-			rootKeys:   map[string]*ecdsa.PublicKey{"k": &leaf.PublicKey},
+			rootKeys:   map[string]rootKey{"k": {PublicKey: &leaf.PublicKey}},
 		},
 		tokenHandler: &TokenHandler{},
 		logger:       logs.NewLogger(logs.LogLevelInfo, false),

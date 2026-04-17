@@ -86,7 +86,13 @@ func (c *Client) initialize() error {
 	return nil
 }
 
-// DecryptPaymentToken 解密支付Token
+// DecryptToken is the recommended alias for DecryptPaymentToken — it matches
+// Google's own terminology and the SDK README.
+func (c *Client) DecryptToken(ctx context.Context, encryptedToken string) (*PaymentToken, error) {
+	return c.DecryptPaymentToken(ctx, encryptedToken)
+}
+
+// DecryptPaymentToken decrypts a Google Pay encrypted payment token.
 func (c *Client) DecryptPaymentToken(ctx context.Context, encryptedToken string) (*PaymentToken, error) {
 	c.mu.RLock()
 	initialized := c.initialized

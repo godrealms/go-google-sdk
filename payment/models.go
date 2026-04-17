@@ -5,67 +5,86 @@ import (
 	"time"
 )
 
-// EncryptedToken 加密Token结构
+// EncryptedToken mirrors the wire format Google Pay delivers to merchants.
+//
+// ECv1:
+//
+//	{
+//	  "protocolVersion": "ECv1",
+//	  "signature": "<base64>",
+//	  "signedMessage": "<json-string>"
+//	}
+//
+// ECv2 additionally includes an intermediateSigningKey block that chains the
+// outer signature to Google's long-lived root keys.
 type EncryptedToken struct {
-	ProtocolVersion string        `json:"protocolVersion"`
-	Signature       string        `json:"signature"`
-	SignedMessage   SignedMessage `json:"signedMessage"`
+	ProtocolVersion       string                 `json:"protocolVersion"`
+	Signature             string                 `json:"signature"`
+	SignedMessage         string                 `json:"signedMessage"`
+	IntermediateSigningKey *IntermediateSigningKey `json:"intermediateSigningKey,omitempty"`
 }
 
-// SignedMessage 签名消息结构
-type SignedMessage struct {
+// IntermediateSigningKey wraps the ECv2 ephemeral signing key that Google
+// rotates periodically. SignedKey is itself a JSON-encoded string so that the
+// byte-exact value can be signed.
+type IntermediateSigningKey struct {
+	SignedKey  string   `json:"signedKey"`
+	Signatures []string `json:"signatures"`
+}
+
+// IntermediateSignedKey is the decoded form of IntermediateSigningKey.SignedKey.
+// KeyValue is the base64-encoded ASN.1 SubjectPublicKeyInfo of the intermediate
+// ECDSA key; KeyExpiration is milliseconds since the Unix epoch encoded as a
+// string (as Google delivers it).
+type IntermediateSignedKey struct {
+	KeyValue      string `json:"keyValue"`
+	KeyExpiration string `json:"keyExpiration"`
+}
+
+// SignedMessagePayload is the decoded form of EncryptedToken.SignedMessage.
+// All three fields are base64-encoded binary blobs.
+type SignedMessagePayload struct {
 	EncryptedMessage   string `json:"encryptedMessage"`
 	EphemeralPublicKey string `json:"ephemeralPublicKey"`
 	Tag                string `json:"tag"`
-	KeyID              string `json:"keyId,omitempty"`
-	Signature          string `json:"signature,omitempty"`
 }
 
-// PaymentToken 支付Token结构
+// PaymentToken is the decrypted payload delivered inside a Google Pay token.
 type PaymentToken struct {
-	// 基本信息
-	MessageID                string `json:"messageId"`
-	MessageExpiration        string `json:"messageExpiration"`
-	PaymentMethod            string `json:"paymentMethod"`
-	PaymentMethodType        string `json:"paymentMethodType"`
-	PaymentMethodDescription string `json:"paymentMethodDescription"`
+	MessageID                string      `json:"messageId"`
+	MessageExpiration        string      `json:"messageExpiration"`
+	PaymentMethod            string      `json:"paymentMethod"`
+	PaymentMethodType        string      `json:"paymentMethodType"`
+	PaymentMethodDescription string      `json:"paymentMethodDescription"`
+	PaymentNetwork           string      `json:"paymentNetwork,omitempty"`
+	PaymentMethodDetails     CardDetails `json:"paymentMethodDetails"`
 
-	// 网络信息
-	PaymentNetwork string `json:"paymentNetwork,omitempty"`
-
-	// 卡片信息
-	PaymentMethodDetails CardDetails `json:"paymentMethodDetails"`
-
-	// 3DS信息
+	// 3DS / network tokenisation fields.
 	AuthenticationMethod string `json:"authenticationMethod,omitempty"`
 	CryptogramType       string `json:"cryptogramType,omitempty"`
 	Cryptogram           string `json:"cryptogram,omitempty"`
 	EciIndicator         string `json:"eciIndicator,omitempty"`
 
-	// 内部字段
+	// ExpiresAt / DecryptedAt are populated by the SDK after decryption.
 	ExpiresAt   time.Time `json:"-"`
 	DecryptedAt time.Time `json:"-"`
 }
 
-// CardDetails 卡片详情
+// CardDetails is the nested paymentMethodDetails object.
 type CardDetails struct {
-	// PAN信息
 	PAN             string `json:"pan,omitempty"`
 	ExpirationMonth int    `json:"expirationMonth,omitempty"`
 	ExpirationYear  int    `json:"expirationYear,omitempty"`
 
-	// 持卡人信息
 	CardholderName string `json:"cardholderName,omitempty"`
 
-	// 账单地址
 	BillingAddress *BillingAddress `json:"billingAddress,omitempty"`
 
-	// 其他信息
 	CardClass   string `json:"cardClass,omitempty"`
 	CardDetails string `json:"cardDetails,omitempty"`
 }
 
-// BillingAddress 账单地址
+// BillingAddress is the optional billing address embedded in CardDetails.
 type BillingAddress struct {
 	Name               string `json:"name,omitempty"`
 	Address1           string `json:"address1,omitempty"`
@@ -78,7 +97,8 @@ type BillingAddress struct {
 	PhoneNumber        string `json:"phoneNumber,omitempty"`
 }
 
-// PaymentMethodInfo 支付方法信息
+// PaymentMethodInfo is a convenience projection returned by
+// Client.GetPaymentMethodInfo.
 type PaymentMethodInfo struct {
 	Type        string      `json:"type"`
 	Description string      `json:"description"`
@@ -86,7 +106,7 @@ type PaymentMethodInfo struct {
 	Details     CardDetails `json:"details"`
 }
 
-// TokenProtocol Token协议类型
+// TokenProtocol enumerates the supported Google Pay token protocol versions.
 type TokenProtocol string
 
 const (
@@ -94,17 +114,13 @@ const (
 	EcV2 TokenProtocol = "ECv2"
 )
 
-// String 实现Stringer接口
-func (t TokenProtocol) String() string {
-	return string(t)
-}
+// String implements fmt.Stringer.
+func (t TokenProtocol) String() string { return string(t) }
 
-// IsValid 验证协议版本是否有效
-func (t TokenProtocol) IsValid() bool {
-	return t == EcV1 || t == EcV2
-}
+// IsValid reports whether the protocol version is one this SDK supports.
+func (t TokenProtocol) IsValid() bool { return t == EcV1 || t == EcV2 }
 
-// MarshalJSON 自定义JSON序列化
+// MarshalJSON serialises the two sdk-populated timestamps as RFC3339.
 func (pt *PaymentToken) MarshalJSON() ([]byte, error) {
 	type Alias PaymentToken
 	return json.Marshal(&struct {
@@ -118,16 +134,14 @@ func (pt *PaymentToken) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// UnmarshalJSON 自定义JSON反序列化
+// UnmarshalJSON accepts the sdk-serialised form and parses the RFC3339 fields.
 func (pt *PaymentToken) UnmarshalJSON(data []byte) error {
 	type Alias PaymentToken
 	aux := &struct {
 		*Alias
 		ExpiresAt   string `json:"expiresAt"`
 		DecryptedAt string `json:"decryptedAt"`
-	}{
-		Alias: (*Alias)(pt),
-	}
+	}{Alias: (*Alias)(pt)}
 
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
@@ -138,17 +152,16 @@ func (pt *PaymentToken) UnmarshalJSON(data []byte) error {
 			pt.ExpiresAt = t
 		}
 	}
-
 	if aux.DecryptedAt != "" {
 		if t, err := time.Parse(time.RFC3339, aux.DecryptedAt); err == nil {
 			pt.DecryptedAt = t
 		}
 	}
-
 	return nil
 }
 
-// IsExpired 检查Token是否过期
+// IsExpired reports whether the token's ExpiresAt has passed. A zero
+// ExpiresAt is treated as "never expires".
 func (pt *PaymentToken) IsExpired() bool {
 	if pt.ExpiresAt.IsZero() {
 		return false
@@ -156,7 +169,8 @@ func (pt *PaymentToken) IsExpired() bool {
 	return time.Now().After(pt.ExpiresAt)
 }
 
-// GetCardLast4 获取卡号后4位
+// GetCardLast4 returns the last four digits of the decrypted PAN, or empty
+// when the PAN is shorter than four characters.
 func (pt *PaymentToken) GetCardLast4() string {
 	if len(pt.PaymentMethodDetails.PAN) >= 4 {
 		return pt.PaymentMethodDetails.PAN[len(pt.PaymentMethodDetails.PAN)-4:]
@@ -164,7 +178,5 @@ func (pt *PaymentToken) GetCardLast4() string {
 	return ""
 }
 
-// GetCardBrand 获取卡品牌
-func (pt *PaymentToken) GetCardBrand() string {
-	return pt.PaymentNetwork
-}
+// GetCardBrand returns the paymentNetwork field (VISA / MASTERCARD / ...).
+func (pt *PaymentToken) GetCardBrand() string { return pt.PaymentNetwork }

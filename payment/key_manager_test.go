@@ -2,7 +2,6 @@ package payment
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -171,8 +170,8 @@ func TestKeyManagerLoadRootKeysSkipsEmptyEntriesAndRefreshes(t *testing.T) {
 	requestCount := 0
 	km := &KeyManager{
 		config: &Config{Environment: EnvironmentSandbox},
-		rootKeys: map[string]*ecdsa.PublicKey{
-			"old": &rootA.PublicKey,
+		rootKeys: map[string]rootKey{
+			"old": {PublicKey: &rootA.PublicKey},
 		},
 		httpClient: &http.Client{},
 	}
@@ -216,10 +215,10 @@ func TestKeyManagerLoadRootKeysSkipsEmptyEntriesAndRefreshes(t *testing.T) {
 }
 
 func TestKeyManagerLoadRootKeysRejectsNonOKStatus(t *testing.T) {
-	rootKey := newECKeyPair(t)
+	rk := newECKeyPair(t)
 	km := &KeyManager{
 		config:     &Config{Environment: EnvironmentSandbox},
-		rootKeys:   map[string]*ecdsa.PublicKey{"cached": &rootKey.PublicKey},
+		rootKeys:   map[string]rootKey{"cached": {PublicKey: &rk.PublicKey}},
 		httpClient: &http.Client{},
 	}
 
@@ -235,7 +234,7 @@ func TestKeyManagerLoadRootKeysRejectsNonOKStatus(t *testing.T) {
 func TestKeyManagerLoadRootKeysPropagatesRequestError(t *testing.T) {
 	km := &KeyManager{
 		config:   &Config{Environment: EnvironmentSandbox},
-		rootKeys: map[string]*ecdsa.PublicKey{},
+		rootKeys: map[string]rootKey{},
 		httpClient: &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			return nil, errors.New("request failed")
 		})},
@@ -249,7 +248,7 @@ func TestKeyManagerLoadRootKeysPropagatesRequestError(t *testing.T) {
 func TestKeyManagerLoadRootKeysPropagatesBodyReadError(t *testing.T) {
 	km := &KeyManager{
 		config:   &Config{Environment: EnvironmentSandbox},
-		rootKeys: map[string]*ecdsa.PublicKey{},
+		rootKeys: map[string]rootKey{},
 		httpClient: &http.Client{Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
@@ -264,7 +263,7 @@ func TestKeyManagerLoadRootKeysPropagatesBodyReadError(t *testing.T) {
 }
 
 func TestKeyManagerGetRootKeyValidatesInput(t *testing.T) {
-	km := &KeyManager{rootKeys: map[string]*ecdsa.PublicKey{"k": nil}}
+	km := &KeyManager{rootKeys: map[string]rootKey{"k": {}}}
 	if _, err := km.GetRootKey(""); err == nil {
 		t.Fatalf("expected empty id error")
 	}
@@ -313,7 +312,7 @@ func TestKeyManagerHealth(t *testing.T) {
 		t.Fatalf("expected missing-root-keys error")
 	}
 
-	km.rootKeys = map[string]*ecdsa.PublicKey{"k": nil}
+	km.rootKeys = map[string]rootKey{"k": {}}
 	if err := km.Health(context.Background()); err != nil {
 		t.Fatalf("expected healthy key manager: %v", err)
 	}
@@ -330,7 +329,7 @@ func TestKeyManagerLoadRootKeysRejectsNoValidKeys(t *testing.T) {
 	km := &KeyManager{
 		config:     &Config{Environment: EnvironmentSandbox},
 		httpClient: &http.Client{},
-		rootKeys:   map[string]*ecdsa.PublicKey{},
+		rootKeys:   map[string]rootKey{},
 	}
 
 	resp := responseWithBody(t, http.StatusOK, `{"keys":[{"keyId":"","keyValue":"invalid","algorithm":"ECDSA"}]}`)
@@ -347,7 +346,7 @@ func TestKeyManagerLoadRootKeysRejectsMalformedJSON(t *testing.T) {
 	km := &KeyManager{
 		config:     &Config{Environment: EnvironmentSandbox},
 		httpClient: &http.Client{},
-		rootKeys:   map[string]*ecdsa.PublicKey{},
+		rootKeys:   map[string]rootKey{},
 	}
 
 	withStubbedDefaultTransport(t, roundTripperFunc(func(req *http.Request) (*http.Response, error) {
@@ -385,7 +384,7 @@ func TestKeyManagerLoadRootKeysSkipsInvalidAndKeepsValid(t *testing.T) {
 	km := &KeyManager{
 		config:     &Config{Environment: EnvironmentSandbox},
 		httpClient: &http.Client{},
-		rootKeys:   map[string]*ecdsa.PublicKey{},
+		rootKeys:   map[string]rootKey{},
 	}
 
 	withStubbedDefaultTransport(t, roundTripperFunc(func(req *http.Request) (*http.Response, error) {
@@ -430,7 +429,7 @@ func TestKeyManagerLoadRootKeysWarnsOnInvalidKey(t *testing.T) {
 
 	km := &KeyManager{
 		config:     &Config{Environment: EnvironmentSandbox},
-		rootKeys:   map[string]*ecdsa.PublicKey{},
+		rootKeys:   map[string]rootKey{},
 		httpClient: &http.Client{},
 		logger:     logs.NewLogger(logs.LogLevelInfo, false),
 	}
@@ -511,7 +510,7 @@ func TestKeyManagerLoadRootKeysUsesProductionURL(t *testing.T) {
 
 	km := &KeyManager{
 		config:     &Config{Environment: EnvironmentProduction},
-		rootKeys:   map[string]*ecdsa.PublicKey{},
+		rootKeys:   map[string]rootKey{},
 		privateKey: newECKeyPair(t),
 		httpClient: &http.Client{},
 	}
@@ -540,7 +539,7 @@ func TestKeyManagerLoadRootKeysReturnsRequestCreationError(t *testing.T) {
 
 	km := &KeyManager{
 		config:     &Config{Environment: EnvironmentSandbox},
-		rootKeys:   map[string]*ecdsa.PublicKey{},
+		rootKeys:   map[string]rootKey{},
 		privateKey: newECKeyPair(t),
 		httpClient: &http.Client{},
 	}
@@ -556,8 +555,8 @@ func TestKeyManagerRefreshRootKeysSkipsNilContext(t *testing.T) {
 
 	km := &KeyManager{
 		config: &Config{Environment: EnvironmentSandbox},
-		rootKeys: map[string]*ecdsa.PublicKey{
-			"old": &root.PublicKey,
+		rootKeys: map[string]rootKey{
+			"old": {PublicKey: &root.PublicKey},
 		},
 		privateKey: newECKeyPair(t),
 		httpClient: &http.Client{},
@@ -581,8 +580,8 @@ func TestKeyManagerLoadRootKeysSkipsRecentCache(t *testing.T) {
 	cached := newECKeyPair(t)
 	km := &KeyManager{
 		config: &Config{Environment: EnvironmentSandbox},
-		rootKeys: map[string]*ecdsa.PublicKey{
-			"cached": &cached.PublicKey,
+		rootKeys: map[string]rootKey{
+			"cached": {PublicKey: &cached.PublicKey},
 		},
 		lastUpdate: time.Now(),
 		httpClient: &http.Client{},
