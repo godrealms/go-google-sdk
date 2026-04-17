@@ -9,11 +9,6 @@ import (
 	"google.golang.org/api/option"
 )
 
-var (
-	ErrMixedOrderProductInput      = errors.New("orderID cannot be combined with productID or purchaseToken")
-	ErrMixedOrderSubscriptionInput = errors.New("orderID cannot be combined with subscriptionID or purchaseToken")
-)
-
 type Service struct {
 	Androidpublisher *androidpublisher.Service
 }

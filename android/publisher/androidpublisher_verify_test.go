@@ -233,7 +233,7 @@ func assertMixedInputRejected(t *testing.T, err error, rt *countingRoundTripper,
 		t.Fatalf("rt is required")
 	}
 	if expectedErr == nil {
-		t.Fatalf("expectedErr is required: got %v, want non-nil error", expectedErr)
+		t.Fatalf("assertMixedInputRejected: expectedErr must not be nil")
 	}
 	if err == nil {
 		t.Fatalf("expected error: got %v, want %v", err, expectedErr)
@@ -305,6 +305,6 @@ func newTestPublisherService(t *testing.T, expectedPath, expectedMethod string, 
 		t.Fatalf("create test service: %v", err)
 	}
 
-	close := server.Close
-	return service, close
+	closeFunc := server.Close
+	return service, closeFunc
 }

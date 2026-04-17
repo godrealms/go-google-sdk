@@ -152,6 +152,6 @@ func newTestRefundService(t *testing.T, expectedPath string, status int) (*Servi
 		t.Fatalf("create test service: %v", err)
 	}
 
-	close := server.Close
-	return service, close
+	closeFunc := server.Close
+	return service, closeFunc
 }
