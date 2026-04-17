@@ -292,6 +292,62 @@ func TestNewServiceWithTokenSourceReturnsErrorOnBadConfig(t *testing.T) {
 	}
 }
 
+func TestVerifyPurchaseSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const packageName = "com.example.app"
+	const productID = "product-1"
+	const token = "token-1"
+	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/purchases/products/" + productID + "/tokens/" + token
+
+	service, closeFunc := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"purchaseState":0}`)
+	defer closeFunc()
+
+	purchase, err := service.VerifyPurchase(context.Background(), packageName, productID, token)
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if purchase == nil {
+		t.Fatalf("expected non-nil purchase")
+	}
+}
+
+func TestVerifySubscriptionsSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const packageName = "com.example.app"
+	const subID = "sub-1"
+	const token = "token-1"
+	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/purchases/subscriptions/" + subID + "/tokens/" + token
+
+	service, closeFunc := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"acknowledgementState":1,"paymentState":1}`)
+	defer closeFunc()
+
+	purchase, err := service.VerifySubscriptions(context.Background(), packageName, subID, token)
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if purchase == nil {
+		t.Fatalf("expected non-nil purchase")
+	}
+}
+
+func TestVerifyOrderIDOnlyReturnsErrRouteUnknown(t *testing.T) {
+	t.Parallel()
+
+	service, closeFunc := newTestPublisherService(t, "/unused", http.MethodGet, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	_, err := service.Verify(context.Background(), VerifyRequest{
+		PackageName: "com.example.app",
+		OrderID:     "order-123",
+		// No Type, no PurchaseToken, no ProductID, no SubscriptionID
+	})
+	if !errors.Is(err, ErrRouteUnknown) {
+		t.Fatalf("expected ErrRouteUnknown, got %v", err)
+	}
+}
+
 func newTestPublisherService(t *testing.T, expectedPath, expectedMethod string, status int, body string) (*Service, func()) {
 	t.Helper()
 

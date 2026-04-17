@@ -137,33 +137,27 @@ func (s *Service) Verify(ctx context.Context, req VerifyRequest) (*VerifyResult,
 	}
 }
 
-func (s *Service) VerifyPurchase(packageName, productId, purchaseToken string) (*androidpublisher.ProductPurchase, error) {
-	// 验证购买
-	purchase, err := s.Androidpublisher.Purchases.Products.Get(packageName, productId, purchaseToken).Do()
+// Deprecated: Use Verify instead.
+func (s *Service) VerifyPurchase(ctx context.Context, packageName, productId, purchaseToken string) (*androidpublisher.ProductPurchase, error) {
+	purchase, err := s.Androidpublisher.Purchases.Products.Get(packageName, productId, purchaseToken).Context(ctx).Do()
 	if err != nil {
 		return nil, err
 	}
-
-	// 检查购买状态
-	if purchase.PurchaseState == 0 { // 0 = purchased, 1 = canceled
+	if purchase.PurchaseState == 0 { // PurchaseState: 0 = purchased, 1 = canceled
 		return purchase, nil
 	}
-
 	return purchase, fmt.Errorf("purchase not valid")
 }
 
-func (s *Service) VerifySubscriptions(packageName, subscriptionId, purchaseToken string) (*androidpublisher.SubscriptionPurchase, error) {
-	// 验证购买
-	purchase, err := s.Androidpublisher.Purchases.Subscriptions.Get(packageName, subscriptionId, purchaseToken).Do()
+// Deprecated: Use Verify instead.
+func (s *Service) VerifySubscriptions(ctx context.Context, packageName, subscriptionId, purchaseToken string) (*androidpublisher.SubscriptionPurchase, error) {
+	purchase, err := s.Androidpublisher.Purchases.Subscriptions.Get(packageName, subscriptionId, purchaseToken).Context(ctx).Do()
 	if err != nil {
 		return nil, err
 	}
-
-	// 检查购买状态
-	if purchase.AcknowledgementState == 1 && purchase.PaymentState != nil { // 0 = purchased, 1 = canceled
+	if purchase.AcknowledgementState == 1 && purchase.PaymentState != nil { // AcknowledgementState: 0 = not acknowledged, 1 = acknowledged
 		return purchase, nil
 	}
-
 	return purchase, fmt.Errorf("purchase not valid")
 }
 
