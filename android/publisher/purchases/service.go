@@ -2,7 +2,6 @@ package purchases
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"google.golang.org/api/androidpublisher/v3"
@@ -18,16 +17,16 @@ func New(raw *androidpublisher.Service) *Service {
 
 func (s *Service) Acknowledge(ctx context.Context, packageName, productID, purchaseToken string) error {
 	if s == nil || s.raw == nil {
-		return errors.New("purchases: service is nil")
+		return ErrServiceNil
 	}
 	if packageName == "" {
-		return errors.New("purchases: packageName is required")
+		return ErrMissingPackageName
 	}
 	if productID == "" {
-		return errors.New("purchases: productID is required")
+		return ErrMissingProductID
 	}
 	if purchaseToken == "" {
-		return errors.New("purchases: purchaseToken is required")
+		return ErrMissingPurchaseToken
 	}
 	return s.raw.Purchases.Products.Acknowledge(packageName, productID, purchaseToken,
 		&androidpublisher.ProductPurchasesAcknowledgeRequest{}).Context(ctx).Do()
@@ -35,56 +34,45 @@ func (s *Service) Acknowledge(ctx context.Context, packageName, productID, purch
 
 func (s *Service) Consume(ctx context.Context, packageName, productID, purchaseToken string) error {
 	if s == nil || s.raw == nil {
-		return errors.New("purchases: service is nil")
+		return ErrServiceNil
 	}
 	if packageName == "" {
-		return errors.New("purchases: packageName is required")
+		return ErrMissingPackageName
 	}
 	if productID == "" {
-		return errors.New("purchases: productID is required")
+		return ErrMissingProductID
 	}
 	if purchaseToken == "" {
-		return errors.New("purchases: purchaseToken is required")
+		return ErrMissingPurchaseToken
 	}
 	return s.raw.Purchases.Products.Consume(packageName, productID, purchaseToken).Context(ctx).Do()
 }
 
-func (s *Service) Query(ctx context.Context, q PurchaseQuery) (*androidpublisher.Order, *androidpublisher.ProductPurchase, error) {
+func (s *Service) Query(ctx context.Context, q PurchaseQuery) (*androidpublisher.ProductPurchase, error) {
 	if s == nil || s.raw == nil {
-		return nil, nil, errors.New("purchases: service is nil")
+		return nil, ErrServiceNil
 	}
 	if q.PackageName == "" {
-		return nil, nil, errors.New("purchases: packageName is required")
+		return nil, ErrMissingPackageName
 	}
-	if q.OrderID != "" && (q.ProductID != "" || q.PurchaseToken != "") {
-		return nil, nil, ErrMixedOrderProductInput
+	if q.ProductID == "" {
+		return nil, ErrMissingProductID
 	}
-	if q.OrderID != "" {
-		order, err := s.raw.Orders.Get(q.PackageName, q.OrderID).Context(ctx).Do()
-		if err != nil {
-			return nil, nil, err
-		}
-		return order, nil, nil
+	if q.PurchaseToken == "" {
+		return nil, ErrMissingPurchaseToken
 	}
-	if q.ProductID == "" || q.PurchaseToken == "" {
-		return nil, nil, errors.New("purchases: productID and purchaseToken are required")
-	}
-	purchase, err := s.raw.Purchases.Products.Get(q.PackageName, q.ProductID, q.PurchaseToken).Context(ctx).Do()
-	if err != nil {
-		return nil, nil, err
-	}
-	return nil, purchase, nil
+	return s.raw.Purchases.Products.Get(q.PackageName, q.ProductID, q.PurchaseToken).Context(ctx).Do()
 }
 
 func (s *Service) Refund(ctx context.Context, packageName, orderID string) error {
 	if s == nil || s.raw == nil {
-		return errors.New("purchases: service is nil")
+		return ErrServiceNil
 	}
 	if packageName == "" {
-		return errors.New("purchases: packageName is required")
+		return ErrMissingPackageName
 	}
 	if orderID == "" {
-		return errors.New("purchases: orderID is required")
+		return ErrMissingOrderID
 	}
 	if err := s.raw.Orders.Refund(packageName, orderID).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("purchases: refund failed: %w", err)
@@ -92,13 +80,14 @@ func (s *Service) Refund(ctx context.Context, packageName, orderID string) error
 	return nil
 }
 
-// Deprecated: Use the parent Client.Verify instead.
+// Deprecated: Use the parent Client.Verify instead. The validity check in this
+// method is simplistic and does not reflect the full purchase lifecycle.
 func (s *Service) VerifyPurchase(ctx context.Context, packageName, productID, purchaseToken string) (*androidpublisher.ProductPurchase, error) {
 	purchase, err := s.raw.Purchases.Products.Get(packageName, productID, purchaseToken).Context(ctx).Do()
 	if err != nil {
 		return nil, err
 	}
-	if purchase.PurchaseState == 0 { // PurchaseState: 0 = purchased, 1 = canceled
+	if purchase.PurchaseState == 0 { // 0 = purchased, 1 = canceled
 		return purchase, nil
 	}
 	return purchase, fmt.Errorf("purchases: purchase not valid")

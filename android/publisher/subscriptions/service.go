@@ -2,7 +2,6 @@ package subscriptions
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"google.golang.org/api/androidpublisher/v3"
@@ -16,52 +15,45 @@ func New(raw *androidpublisher.Service) *Service {
 	return &Service{raw: raw}
 }
 
-func (s *Service) Query(ctx context.Context, q SubscriptionQuery) (*androidpublisher.Order, *SubscriptionResult, error) {
+func (s *Service) Query(ctx context.Context, q SubscriptionQuery) (*SubscriptionResult, error) {
 	if s == nil || s.raw == nil {
-		return nil, nil, errors.New("subscriptions: service is nil")
+		return nil, ErrServiceNil
 	}
 	if q.PackageName == "" {
-		return nil, nil, errors.New("subscriptions: packageName is required")
+		return nil, ErrMissingPackageName
 	}
-	if q.OrderID != "" && (q.SubscriptionID != "" || q.PurchaseToken != "") {
-		return nil, nil, ErrMixedOrderSubscriptionInput
-	}
-	if q.OrderID != "" {
-		order, err := s.raw.Orders.Get(q.PackageName, q.OrderID).Context(ctx).Do()
-		if err != nil {
-			return nil, nil, err
-		}
-		return order, nil, nil
-	}
-	if q.SubscriptionID == "" || q.PurchaseToken == "" {
-		return nil, nil, errors.New("subscriptions: subscriptionID and purchaseToken are required")
+	if q.PurchaseToken == "" {
+		return nil, ErrMissingPurchaseToken
 	}
 	if q.UseV1 {
+		if q.SubscriptionID == "" {
+			return nil, ErrMissingSubscriptionID
+		}
 		purchase, err := s.raw.Purchases.Subscriptions.Get(q.PackageName, q.SubscriptionID, q.PurchaseToken).Context(ctx).Do()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		return nil, &SubscriptionResult{V1: purchase}, nil
+		return &SubscriptionResult{V1: purchase}, nil
 	}
 	purchase, err := s.raw.Purchases.Subscriptionsv2.Get(q.PackageName, q.PurchaseToken).Context(ctx).Do()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return nil, &SubscriptionResult{V2: purchase}, nil
+	return &SubscriptionResult{V2: purchase}, nil
 }
 
 func (s *Service) Refund(ctx context.Context, packageName, subscriptionID, purchaseToken string) error {
 	if s == nil || s.raw == nil {
-		return errors.New("subscriptions: service is nil")
+		return ErrServiceNil
 	}
 	if packageName == "" {
-		return errors.New("subscriptions: packageName is required")
+		return ErrMissingPackageName
 	}
 	if subscriptionID == "" {
-		return errors.New("subscriptions: subscriptionID is required")
+		return ErrMissingSubscriptionID
 	}
 	if purchaseToken == "" {
-		return errors.New("subscriptions: purchaseToken is required")
+		return ErrMissingPurchaseToken
 	}
 	if err := s.raw.Purchases.Subscriptions.Refund(packageName, subscriptionID, purchaseToken).Context(ctx).Do(); err != nil {
 		return fmt.Errorf("subscriptions: refund failed: %w", err)
@@ -69,7 +61,9 @@ func (s *Service) Refund(ctx context.Context, packageName, subscriptionID, purch
 	return nil
 }
 
-// Deprecated: Use the parent Client.Verify instead.
+// Deprecated: Use the parent Client.Verify instead. The validity check in this
+// method is incorrect — an unacknowledged-but-valid new subscription will be
+// reported as invalid.
 func (s *Service) VerifySubscriptions(ctx context.Context, packageName, subscriptionID, purchaseToken string) (*androidpublisher.SubscriptionPurchase, error) {
 	purchase, err := s.raw.Purchases.Subscriptions.Get(packageName, subscriptionID, purchaseToken).Context(ctx).Do()
 	if err != nil {

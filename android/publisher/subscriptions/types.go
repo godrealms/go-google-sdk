@@ -6,13 +6,17 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-var ErrMixedOrderSubscriptionInput = errors.New("subscriptions: orderID and subscriptionID are mutually exclusive")
+var (
+	ErrServiceNil              = errors.New("subscriptions: service is nil")
+	ErrMissingPackageName      = errors.New("subscriptions: packageName is required")
+	ErrMissingSubscriptionID   = errors.New("subscriptions: subscriptionID is required")
+	ErrMissingPurchaseToken    = errors.New("subscriptions: purchaseToken is required")
+)
 
 type SubscriptionQuery struct {
 	PackageName    string
 	SubscriptionID string
 	PurchaseToken  string
-	OrderID        string
 	UseV1          bool // true → use v1 Purchases.Subscriptions API instead of v2
 }
 

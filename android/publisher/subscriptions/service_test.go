@@ -25,7 +25,7 @@ func TestQueryByTokenV2ReturnsV2Result(t *testing.T) {
 	svc, closeFunc := newTestService(t, path, http.MethodGet, http.StatusOK, `{"kind":"androidpublisher#subscriptionPurchaseV2"}`)
 	defer closeFunc()
 
-	_, result, err := svc.Query(context.Background(), subscriptions.SubscriptionQuery{
+	result, err := svc.Query(context.Background(), subscriptions.SubscriptionQuery{
 		PackageName: pkg, SubscriptionID: subID, PurchaseToken: tok,
 	})
 	if err != nil {
@@ -50,7 +50,7 @@ func TestQueryByTokenV1ReturnsV1Result(t *testing.T) {
 	svc, closeFunc := newTestService(t, path, http.MethodGet, http.StatusOK, `{"kind":"androidpublisher#subscriptionPurchase"}`)
 	defer closeFunc()
 
-	_, result, err := svc.Query(context.Background(), subscriptions.SubscriptionQuery{
+	result, err := svc.Query(context.Background(), subscriptions.SubscriptionQuery{
 		PackageName: pkg, SubscriptionID: subID, PurchaseToken: tok, UseV1: true,
 	})
 	if err != nil {
@@ -61,38 +61,17 @@ func TestQueryByTokenV1ReturnsV1Result(t *testing.T) {
 	}
 }
 
-func TestQueryByOrderIDReturnsOrder(t *testing.T) {
-	t.Parallel()
-
-	const pkg = "com.example.app"
-	const orderID = "order-123"
-	path := "/androidpublisher/v3/applications/" + pkg + "/orders/" + orderID
-
-	svc, closeFunc := newTestService(t, path, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
-	defer closeFunc()
-
-	order, _, err := svc.Query(context.Background(), subscriptions.SubscriptionQuery{
-		PackageName: pkg, OrderID: orderID,
-	})
-	if err != nil {
-		t.Fatalf("expected success: %v", err)
-	}
-	if order.OrderId != orderID {
-		t.Fatalf("expected order ID %q, got %q", orderID, order.OrderId)
-	}
-}
-
-func TestQueryRejectsMixedInputs(t *testing.T) {
+func TestQueryV1RequiresSubscriptionID(t *testing.T) {
 	t.Parallel()
 
 	svc, closeFunc := newTestService(t, "/unused", http.MethodGet, http.StatusOK, `{}`)
 	defer closeFunc()
 
-	_, _, err := svc.Query(context.Background(), subscriptions.SubscriptionQuery{
-		PackageName: "com.example", OrderID: "o1", SubscriptionID: "s1",
+	_, err := svc.Query(context.Background(), subscriptions.SubscriptionQuery{
+		PackageName: "com.example", PurchaseToken: "tok", UseV1: true,
 	})
 	if err == nil {
-		t.Fatalf("expected ErrMixedOrderSubscriptionInput")
+		t.Fatalf("expected error for missing subscriptionID in v1 mode")
 	}
 }
 

@@ -1,3 +1,8 @@
+// Package publisher provides a Google Play Developer Publisher API client
+// organized as a Client aggregator over resource-specific sub-services
+// (purchases, subscriptions, orders, inappproducts, voidedpurchases).
+// The top-level Client owns the Verify() routing logic including OrderID
+// auto-resolution via the Orders API.
 package publisher
 
 import (
@@ -72,14 +77,42 @@ func NewClientWithKey(ctx context.Context, apiKey string) (*Client, error) {
 }
 
 // Verify routes a purchase verification request to the appropriate sub-service.
-// When only OrderID is provided (no Type, no PurchaseToken), Verify calls the Orders
-// API to inspect LineItems and auto-resolves the product type.
+//
+// Routing rules:
+//   - OrderID provided: calls Orders.Get. If Type is also set, returns the order
+//     tagged with that type. If Type is empty, inspects LineItems[0] to auto-resolve.
+//   - PurchaseToken + ProductID (or Type=product): delegates to Purchases.Query.
+//   - PurchaseToken + SubscriptionID (or Type=subscription): delegates to Subscriptions.Query.
+//   - Otherwise: returns ErrRouteUnknown.
 func (c *Client) Verify(ctx context.Context, req VerifyRequest) (*VerifyResult, error) {
 	if c == nil || c.raw == nil {
 		return nil, errors.New("publisher: client is nil")
 	}
 	if req.PackageName == "" {
 		return nil, ErrMissingPackageName
+	}
+
+	if req.OrderID != "" {
+		order, err := c.Orders.Get(ctx, req.PackageName, req.OrderID)
+		if err != nil {
+			return nil, err
+		}
+		resolved := req.Type
+		if resolved == "" {
+			if len(order.LineItems) == 0 {
+				return nil, ErrRouteUnknown
+			}
+			item := order.LineItems[0]
+			switch {
+			case item.SubscriptionDetails != nil:
+				resolved = VerifyTypeSubscription
+			case item.OneTimePurchaseDetails != nil || item.PaidAppDetails != nil:
+				resolved = VerifyTypeProduct
+			default:
+				return nil, ErrRouteUnknown
+			}
+		}
+		return &VerifyResult{Type: resolved, Raw: order}, nil
 	}
 
 	resolved := req.Type
@@ -89,24 +122,6 @@ func (c *Client) Verify(ctx context.Context, req VerifyRequest) (*VerifyResult, 
 			resolved = VerifyTypeSubscription
 		case req.ProductID != "":
 			resolved = VerifyTypeProduct
-		case req.OrderID != "":
-			// Auto-resolve by fetching the order and inspecting its line items.
-			order, err := c.Orders.Get(ctx, req.PackageName, req.OrderID)
-			if err != nil {
-				return nil, err
-			}
-			if len(order.LineItems) == 0 {
-				return nil, ErrRouteUnknown
-			}
-			item := order.LineItems[0]
-			switch {
-			case item.SubscriptionDetails != nil:
-				return &VerifyResult{Type: VerifyTypeSubscription, Raw: order}, nil
-			case item.OneTimePurchaseDetails != nil || item.PaidAppDetails != nil:
-				return &VerifyResult{Type: VerifyTypeProduct, Raw: order}, nil
-			default:
-				return nil, ErrRouteUnknown
-			}
 		default:
 			return nil, ErrRouteUnknown
 		}
@@ -114,32 +129,24 @@ func (c *Client) Verify(ctx context.Context, req VerifyRequest) (*VerifyResult, 
 
 	switch resolved {
 	case VerifyTypeProduct:
-		order, purchase, err := c.Purchases.Query(ctx, purchases.PurchaseQuery{
+		purchase, err := c.Purchases.Query(ctx, purchases.PurchaseQuery{
 			PackageName:   req.PackageName,
 			ProductID:     req.ProductID,
 			PurchaseToken: req.PurchaseToken,
-			OrderID:       req.OrderID,
 		})
 		if err != nil {
 			return nil, err
-		}
-		if order != nil {
-			return &VerifyResult{Type: VerifyTypeProduct, Raw: order}, nil
 		}
 		return &VerifyResult{Type: VerifyTypeProduct, Raw: purchase}, nil
 
 	case VerifyTypeSubscription:
-		order, result, err := c.Subscriptions.Query(ctx, subscriptions.SubscriptionQuery{
+		result, err := c.Subscriptions.Query(ctx, subscriptions.SubscriptionQuery{
 			PackageName:    req.PackageName,
 			SubscriptionID: req.SubscriptionID,
 			PurchaseToken:  req.PurchaseToken,
-			OrderID:        req.OrderID,
 		})
 		if err != nil {
 			return nil, err
-		}
-		if order != nil {
-			return &VerifyResult{Type: VerifyTypeSubscription, Raw: order}, nil
 		}
 		return &VerifyResult{Type: VerifyTypeSubscription, Raw: result}, nil
 

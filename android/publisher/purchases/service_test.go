@@ -95,7 +95,7 @@ func TestQueryByTokenReturnsProductPurchase(t *testing.T) {
 	svc, closeFunc := newTestService(t, path, http.MethodGet, http.StatusOK, `{"purchaseState":0}`)
 	defer closeFunc()
 
-	_, purchase, err := svc.Query(context.Background(), purchases.PurchaseQuery{
+	purchase, err := svc.Query(context.Background(), purchases.PurchaseQuery{
 		PackageName: pkg, ProductID: prod, PurchaseToken: tok,
 	})
 	if err != nil {
@@ -106,38 +106,26 @@ func TestQueryByTokenReturnsProductPurchase(t *testing.T) {
 	}
 }
 
-func TestQueryByOrderIDReturnsOrder(t *testing.T) {
-	t.Parallel()
-
-	const pkg = "com.example.app"
-	const orderID = "order-123"
-	path := "/androidpublisher/v3/applications/" + pkg + "/orders/" + orderID
-
-	svc, closeFunc := newTestService(t, path, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
-	defer closeFunc()
-
-	order, _, err := svc.Query(context.Background(), purchases.PurchaseQuery{
-		PackageName: pkg, OrderID: orderID,
-	})
-	if err != nil {
-		t.Fatalf("expected success: %v", err)
-	}
-	if order.OrderId != orderID {
-		t.Fatalf("expected order ID %q, got %q", orderID, order.OrderId)
-	}
-}
-
-func TestQueryRejectsMixedInputs(t *testing.T) {
+func TestQueryRequiresFields(t *testing.T) {
 	t.Parallel()
 
 	svc, closeFunc := newTestService(t, "/unused", http.MethodGet, http.StatusOK, `{}`)
 	defer closeFunc()
 
-	_, _, err := svc.Query(context.Background(), purchases.PurchaseQuery{
-		PackageName: "com.example", OrderID: "o1", ProductID: "p1",
-	})
-	if err == nil {
-		t.Fatalf("expected ErrMixedOrderProductInput")
+	if _, err := svc.Query(context.Background(), purchases.PurchaseQuery{
+		ProductID: "p", PurchaseToken: "t",
+	}); err == nil {
+		t.Fatalf("expected error for missing packageName")
+	}
+	if _, err := svc.Query(context.Background(), purchases.PurchaseQuery{
+		PackageName: "com.example", PurchaseToken: "t",
+	}); err == nil {
+		t.Fatalf("expected error for missing productID")
+	}
+	if _, err := svc.Query(context.Background(), purchases.PurchaseQuery{
+		PackageName: "com.example", ProductID: "p",
+	}); err == nil {
+		t.Fatalf("expected error for missing purchaseToken")
 	}
 }
 
