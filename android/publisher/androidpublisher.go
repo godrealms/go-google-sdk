@@ -225,12 +225,11 @@ func NewServiceWithTokenSource(ctx context.Context, config *oauth2.Config, code 
 		return nil, err
 	}
 	androidpublisherService, err := androidpublisher.NewService(ctx, option.WithTokenSource(config.TokenSource(ctx, token)))
-
-	service := &Service{
-		Androidpublisher: androidpublisherService,
+	if err != nil {
+		return nil, err
 	}
 
-	return service, nil
+	return &Service{Androidpublisher: androidpublisherService}, nil
 }
 
 func NewServiceWithKey(ctx context.Context, APIKey string) (*Service, error) {

@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"golang.org/x/oauth2"
 	"google.golang.org/api/androidpublisher/v3"
 	"google.golang.org/api/option"
 )
@@ -278,6 +279,17 @@ func TestQuerySubscriptionRejectsMixedInputs(t *testing.T) {
 		PurchaseToken:  "token-123",
 	})
 	assertMixedInputRejected(t, err, rt, ErrMixedOrderSubscriptionInput)
+}
+
+func TestNewServiceWithTokenSourceReturnsErrorOnBadConfig(t *testing.T) {
+	t.Parallel()
+
+	// An empty oauth2.Config has an empty TokenURL, which causes Exchange to fail.
+	cfg := &oauth2.Config{}
+	_, err := NewServiceWithTokenSource(context.Background(), cfg, "bad-code")
+	if err == nil {
+		t.Fatalf("expected error for invalid oauth2 config, got nil")
+	}
 }
 
 func newTestPublisherService(t *testing.T, expectedPath, expectedMethod string, status int, body string) (*Service, func()) {
