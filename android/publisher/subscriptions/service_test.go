@@ -176,6 +176,28 @@ func TestRevokeSucceeds(t *testing.T) {
 	}
 }
 
+func TestCancelV2Succeeds(t *testing.T) {
+	t.Parallel()
+	const pkg, tok = "com.example.app", "tok-1"
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/subscriptionsv2/tokens/" + tok + ":cancel"
+	svc, closeFunc := newTestService(t, path, http.MethodPost, http.StatusOK, `{}`)
+	defer closeFunc()
+	if _, err := svc.CancelV2(context.Background(), pkg, tok, nil); err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+}
+
+func TestDeferV2Succeeds(t *testing.T) {
+	t.Parallel()
+	const pkg, tok = "com.example.app", "tok-1"
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/subscriptionsv2/tokens/" + tok + ":defer"
+	svc, closeFunc := newTestService(t, path, http.MethodPost, http.StatusOK, `{}`)
+	defer closeFunc()
+	if _, err := svc.DeferV2(context.Background(), pkg, tok, nil); err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+}
+
 func TestRevokeV2Succeeds(t *testing.T) {
 	t.Parallel()
 
