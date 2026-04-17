@@ -28,6 +28,11 @@
 - Fixed misleading `AcknowledgementState` comment (was describing `PurchaseState` semantics)
 - Fixed `close` built-in shadowing in test helpers
 
+## v0.0.3
+
+- Added order-level and token-level purchase/subscription query: `QueryPurchase`, `QuerySubscription`
+- Enhanced mixed-input validation (order ID + token combinations) and test coverage
+
 ## v0.0.2
 
 - 中文：新增 Android Publisher 退款能力：`RefundPurchase` 与 `RefundSubscription`，并补充完整的参数校验、成功/失败及请求校验测试；更新 `README` API 文档。

@@ -55,36 +55,50 @@ cloud.google.com/go/pubsub v1.33.0
 ### 1. Google Play Developer API
 
 ```go
-// 使用服务账户密钥文件初始化客户端
-client, err := publisher.NewClientWithKey(ctx, keyBytes)
-if err != nil {
-    log.Fatal(err)
+import (
+    "context"
+    "log"
+
+    "github.com/godrealms/go-google-sdk/android/publisher"
+    "github.com/godrealms/go-google-sdk/android/publisher/subscriptions"
+    "github.com/godrealms/go-google-sdk/android/publisher/voidedpurchases"
+)
+
+func main() {
+    ctx := context.Background()
+
+    // 初始化客户端（使用 Application Default Credentials）
+    client, err := publisher.NewClient(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+    // ... rest of examples
+
+    // 统一验证购买（自动根据 ProductID / SubscriptionID / OrderID 路由）
+    result, err := client.Verify(ctx, publisher.VerifyRequest{
+        PackageName:   "com.example.app",
+        ProductID:     "sword_001",
+        PurchaseToken: "purchase-token-from-google-play",
+    })
+
+    // 确认一次性内购（需在 3 天内确认）
+    err = client.Purchases.Acknowledge(ctx, "com.example.app", "sword_001", "purchase-token")
+
+    // 查询订阅详情（默认使用 v2 API）
+    _, subResult, err := client.Subscriptions.Query(ctx, subscriptions.SubscriptionQuery{
+        PackageName:    "com.example.app",
+        SubscriptionID: "monthly_pro",
+        PurchaseToken:  "sub-token",
+    })
+    // subResult.V2 包含 SubscriptionPurchaseV2
+
+    // 列出应用内产品目录
+    resp, err := client.InAppProducts.List(ctx, "com.example.app")
+
+    // 列出已撤销购买（用于欺诈检测）
+    voidedResp, err := client.VoidedPurchases.List(ctx, "com.example.app",
+        voidedpurchases.WithMaxResults(100))
 }
-
-// 统一验证购买（自动根据 ProductID / SubscriptionID / OrderID 路由）
-result, err := client.Verify(ctx, publisher.VerifyRequest{
-    PackageName:   "com.example.app",
-    ProductID:     "sword_001",
-    PurchaseToken: "purchase-token-from-google-play",
-})
-
-// 确认一次性内购（需在 3 天内确认）
-err = client.Purchases.Acknowledge(ctx, "com.example.app", "sword_001", "purchase-token")
-
-// 查询订阅详情（默认使用 v2 API）
-_, subResult, err := client.Subscriptions.Query(ctx, subscriptions.SubscriptionQuery{
-    PackageName:    "com.example.app",
-    SubscriptionID: "monthly_pro",
-    PurchaseToken:  "sub-token",
-})
-// subResult.V2 包含 SubscriptionPurchaseV2
-
-// 列出应用内产品目录
-resp, err := client.InAppProducts.List(ctx, "com.example.app")
-
-// 列出已撤销购买（用于欺诈检测）
-voidedResp, err := client.VoidedPurchases.List(ctx, "com.example.app",
-    voidedpurchases.WithMaxResults(100))
 ```
 
 ### 2. Google Pay 支付处理
