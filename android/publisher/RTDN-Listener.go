@@ -1,10 +1,12 @@
 package publisher
 
 import (
-	"cloud.google.com/go/pubsub"
 	"context"
+	"errors"
+	"fmt"
+
+	"cloud.google.com/go/pubsub"
 	"google.golang.org/api/option"
-	"log"
 )
 
 type Notification struct {
@@ -104,34 +106,36 @@ func (n *TestNotification) Process() error {
 //
 //		msg.Ack() // 确认消息
 //	})
-func StartSubscriptionMonitor(config *Config, fun func(ctx context.Context, msg *pubsub.Message)) {
+// StartSubscriptionMonitor starts a Google Cloud Pub/Sub listener for RTDN notifications.
+// Errors from the listener are sent to errCh; callers decide how to handle them.
+// The function blocks until ctx is cancelled.
+func StartSubscriptionMonitor(ctx context.Context, config *Config, errCh chan<- error, fun func(ctx context.Context, msg *pubsub.Message)) {
 	if config == nil {
+		if errCh != nil {
+			errCh <- errors.New("publisher: config is nil")
+		}
 		return
 	}
 
-	ctx := context.Background()
 	var client *pubsub.Client
 	var err error
 	if config.JsonKey != "" {
-		client, err = pubsub.NewClient(ctx, config.ProjectID, option.WithCredentialsJSON([]byte(config.JsonKey))) // Initialize Pub/Sub client
-		if err != nil {
-			return
-		}
+		client, err = pubsub.NewClient(ctx, config.ProjectID, option.WithCredentialsJSON([]byte(config.JsonKey)))
 	} else {
-		// 设置 GOOGLE_APPLICATION_CREDENTIALS 环境变量，指向服务账号 JSON 文件
-		// export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your-service-account-key.json"
-		client, err = pubsub.NewClient(ctx, config.ProjectID) // Initialize Pub/Sub client
-		if err != nil {
-			return
+		client, err = pubsub.NewClient(ctx, config.ProjectID)
+	}
+	if err != nil {
+		if errCh != nil {
+			errCh <- fmt.Errorf("publisher: pubsub client: %w", err)
 		}
+		return
 	}
 	defer client.Close()
 
-	// Get the subscription
 	sub := client.Subscription(config.SubscriptionID)
-
-	// Start receiving messages
 	if err = sub.Receive(ctx, fun); err != nil {
-		log.Fatalf("Failed to receive messages: %v", err)
+		if errCh != nil {
+			errCh <- fmt.Errorf("publisher: receive: %w", err)
+		}
 	}
 }
