@@ -1,5 +1,22 @@
 # Changelog / 变更日志
 
+## v0.0.5 — 2026-04-17
+
+### New Features
+
+- `purchases.GetV2` — product purchase lookup via the `productsv2` endpoint (token-only; no productID in path)
+- `subscriptions.Acknowledge` / `Cancel` / `Defer` / `Revoke` — full lifecycle management for v1 subscription purchases
+- `subscriptions.RevokeV2` — revoke via the `subscriptionsv2` endpoint
+- `orders.Refund` gains a `revoke bool` parameter; `orders.BatchGet` for multi-order retrieval
+- `inappproducts.BatchDelete` for bulk catalog deletion
+- New `monetization/onetimeproducts` sub-package — full CRUD for one-time products plus `purchaseOptions` and `purchaseOptions.offers` sub-resources (Activate/Cancel/Deactivate/List/Batch*)
+- New `monetization/subscriptions` sub-package — full Subscription CRUD (Create/Get/List/Patch/Delete/Archive), `basePlans` (Activate/Deactivate/Delete/MigratePrices/Batch*), `basePlans.offers` (full CRUD + Activate/Deactivate/Batch*), and `ConvertRegionPrices` pricing endpoint
+- `Client.OneTimeProducts` and `Client.MonetizationSubscriptions` wired into the top-level aggregator
+
+### Dependencies
+
+- Upgraded `google.golang.org/api` from v0.243.0 to v0.276.0 (Go toolchain bumped to 1.25.0 as required)
+
 ## v0.0.4 — 2026-04-17
 
 ### Breaking Changes

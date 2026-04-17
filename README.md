@@ -210,11 +210,13 @@ handlePurchaseNotification(notification.OneTimeProductNotification)
 
 | 子包 | 方法 |
 |---|---|
-| `client.Purchases` | `Acknowledge`, `Consume`, `Query`, `Refund` |
-| `client.Subscriptions` | `Query`（v2/v1）, `Refund` |
-| `client.Orders` | `Get` |
-| `client.InAppProducts` | `List`, `Get`, `Insert`, `Update`, `Delete`, `BatchGet`, `BatchUpdate` |
+| `client.Purchases` | `Acknowledge`, `Consume`, `Query`, `GetV2`, `Refund` |
+| `client.Subscriptions` | `Query`（v2/v1）, `Acknowledge`, `Cancel`, `Defer`, `Revoke`, `RevokeV2`, `Refund` |
+| `client.Orders` | `Get`, `Refund`, `BatchGet` |
+| `client.InAppProducts` | `List`, `Get`, `Insert`, `Update`, `Delete`, `BatchGet`, `BatchUpdate`, `BatchDelete` |
 | `client.VoidedPurchases` | `List` |
+| `client.OneTimeProducts` | `Get`, `List`, `Patch`, `Delete`, `BatchGet`, `BatchUpdate`, `BatchDelete`, `PurchaseOptions.*`, `PurchaseOptions.Offers.*` |
+| `client.MonetizationSubscriptions` | `Get`, `List`, `Create`, `Patch`, `Delete`, `Archive`, `BatchGet`, `BatchUpdate`, `ConvertRegionPrices`, `BasePlans.*`, `BasePlans.Offers.*` |
 | `client`（顶层） | `Verify`（统一路由） |
 
 ### Google Pay Client
@@ -327,6 +329,23 @@ processPaymentToken(result)
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 更新日志
+
+### v0.0.5（2026-04-17）
+
+#### 变更要点
+
+- ✅ 新增 `purchases.GetV2`（productsv2 端点，仅按 token 查询）
+- ✅ 补齐 `subscriptions.Acknowledge` / `Cancel` / `Defer` / `Revoke` / `RevokeV2` 全生命周期管理
+- ✅ `orders.Refund` 新增 `revoke` 参数；新增 `orders.BatchGet`
+- ✅ 新增 `inappproducts.BatchDelete` 批量删除
+- ✨ 新增 `monetization/onetimeproducts` 子包：一次性商品 CRUD、`purchaseOptions`、`purchaseOptions.offers` 全量方法
+- ✨ 新增 `monetization/subscriptions` 子包：订阅商品 CRUD + Archive、`basePlans`、`basePlans.offers`、`ConvertRegionPrices` 定价换算
+- 🔌 `client.OneTimeProducts` 与 `client.MonetizationSubscriptions` 已纳入顶层 `Client`
+- ⬆️ 升级 `google.golang.org/api` v0.243.0 → v0.276.0（Go 工具链升级到 1.25.0）
+
+#### 版本元信息
+
+- 🧪 验证：`go test ./...`
 
 ### v0.0.4（2026-04-17 / `0bacb4e0aeb3629e757404e1e58a780ec199c307`）
 

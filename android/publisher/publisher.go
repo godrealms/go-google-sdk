@@ -14,6 +14,8 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/godrealms/go-google-sdk/android/publisher/inappproducts"
+	monetizationsubs "github.com/godrealms/go-google-sdk/android/publisher/monetization/subscriptions"
+	"github.com/godrealms/go-google-sdk/android/publisher/monetization/onetimeproducts"
 	"github.com/godrealms/go-google-sdk/android/publisher/orders"
 	"github.com/godrealms/go-google-sdk/android/publisher/purchases"
 	"github.com/godrealms/go-google-sdk/android/publisher/subscriptions"
@@ -28,17 +30,25 @@ type Client struct {
 	Orders          *orders.Service
 	InAppProducts   *inappproducts.Service
 	VoidedPurchases *voidedpurchases.Service
-	raw             *androidpublisher.Service
+	// OneTimeProducts wraps the monetization.onetimeproducts catalog surface.
+	OneTimeProducts *onetimeproducts.Service
+	// MonetizationSubscriptions wraps the monetization.subscriptions catalog
+	// surface (Subscription CRUD + basePlans + offers + convertRegionPrices).
+	// Distinct from Subscriptions, which handles purchased-subscription lookups.
+	MonetizationSubscriptions *monetizationsubs.Service
+	raw                       *androidpublisher.Service
 }
 
 func newClient(raw *androidpublisher.Service) *Client {
 	return &Client{
-		Purchases:       purchases.New(raw),
-		Subscriptions:   subscriptions.New(raw),
-		Orders:          orders.New(raw),
-		InAppProducts:   inappproducts.New(raw),
-		VoidedPurchases: voidedpurchases.New(raw),
-		raw:             raw,
+		Purchases:                 purchases.New(raw),
+		Subscriptions:             subscriptions.New(raw),
+		Orders:                    orders.New(raw),
+		InAppProducts:             inappproducts.New(raw),
+		VoidedPurchases:           voidedpurchases.New(raw),
+		OneTimeProducts:           onetimeproducts.New(raw),
+		MonetizationSubscriptions: monetizationsubs.New(raw),
+		raw:                       raw,
 	}
 }
 
