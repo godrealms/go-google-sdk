@@ -66,6 +66,76 @@ func TestGetPropagatesAPIError(t *testing.T) {
 	}
 }
 
+func TestRefundSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	const orderID = "order-123"
+	path := "/androidpublisher/v3/applications/" + pkg + "/orders/" + orderID + ":refund"
+
+	svc, closeFunc := newTestServiceWithMethod(t, path, http.MethodPost, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	if err := svc.Refund(context.Background(), pkg, orderID, true); err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+}
+
+func TestBatchGetSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	path := "/androidpublisher/v3/applications/" + pkg + "/orders:batchGet"
+
+	svc, closeFunc := newTestServiceWithMethod(t, path, http.MethodGet, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	resp, err := svc.BatchGet(context.Background(), pkg, []string{"order-1", "order-2"})
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if resp == nil {
+		t.Fatalf("expected non-nil response")
+	}
+}
+
+func TestBatchGetRequiresOrderIDs(t *testing.T) {
+	t.Parallel()
+
+	svc, closeFunc := newTestService(t, "/unused", http.StatusOK, `{}`)
+	defer closeFunc()
+
+	_, err := svc.BatchGet(context.Background(), "com.example.app", nil)
+	if err == nil {
+		t.Fatalf("expected error for empty orderIDs")
+	}
+}
+
+func newTestServiceWithMethod(t *testing.T, expectedPath, expectedMethod string, status int, body string) (*orders.Service, func()) {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != expectedMethod {
+			t.Errorf("expected %s, got %s", expectedMethod, r.Method)
+		}
+		if r.URL.Path != expectedPath {
+			t.Errorf("unexpected path: got %q, want %q", r.URL.Path, expectedPath)
+		}
+		w.WriteHeader(status)
+		fmt.Fprint(w, body)
+	}))
+
+	raw, err := androidpublisher.NewService(context.Background(),
+		option.WithEndpoint(server.URL),
+		option.WithoutAuthentication(),
+	)
+	if err != nil {
+		t.Fatalf("create raw service: %v", err)
+	}
+
+	return orders.New(raw), server.Close
+}
+
 func newTestService(t *testing.T, expectedPath string, status int, body string) (*orders.Service, func()) {
 	t.Helper()
 

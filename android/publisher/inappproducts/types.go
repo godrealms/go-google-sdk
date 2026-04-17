@@ -1,6 +1,17 @@
 package inappproducts
 
-import "google.golang.org/api/androidpublisher/v3"
+import (
+	"errors"
+
+	"google.golang.org/api/androidpublisher/v3"
+)
+
+var (
+	ErrServiceNil         = errors.New("inappproducts: service is nil")
+	ErrMissingPackageName = errors.New("inappproducts: packageName is required")
+	ErrMissingSKU         = errors.New("inappproducts: sku is required")
+	ErrMissingRequest     = errors.New("inappproducts: request is required")
+)
 
 // ListOption configures an inappproducts list call.
 type ListOption func(*androidpublisher.InappproductsListCall)

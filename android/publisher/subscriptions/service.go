@@ -42,6 +42,105 @@ func (s *Service) Query(ctx context.Context, q SubscriptionQuery) (*Subscription
 	return &SubscriptionResult{V2: purchase}, nil
 }
 
+func (s *Service) Acknowledge(ctx context.Context, packageName, subscriptionID, purchaseToken string) error {
+	if s == nil || s.raw == nil {
+		return ErrServiceNil
+	}
+	if packageName == "" {
+		return ErrMissingPackageName
+	}
+	if subscriptionID == "" {
+		return ErrMissingSubscriptionID
+	}
+	if purchaseToken == "" {
+		return ErrMissingPurchaseToken
+	}
+	if err := s.raw.Purchases.Subscriptions.Acknowledge(packageName, subscriptionID, purchaseToken, &androidpublisher.SubscriptionPurchasesAcknowledgeRequest{}).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("subscriptions: acknowledge failed: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) Cancel(ctx context.Context, packageName, subscriptionID, purchaseToken string) error {
+	if s == nil || s.raw == nil {
+		return ErrServiceNil
+	}
+	if packageName == "" {
+		return ErrMissingPackageName
+	}
+	if subscriptionID == "" {
+		return ErrMissingSubscriptionID
+	}
+	if purchaseToken == "" {
+		return ErrMissingPurchaseToken
+	}
+	if err := s.raw.Purchases.Subscriptions.Cancel(packageName, subscriptionID, purchaseToken).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("subscriptions: cancel failed: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) Defer(ctx context.Context, packageName, subscriptionID, purchaseToken string, req *androidpublisher.SubscriptionPurchasesDeferRequest) (*androidpublisher.SubscriptionPurchasesDeferResponse, error) {
+	if s == nil || s.raw == nil {
+		return nil, ErrServiceNil
+	}
+	if packageName == "" {
+		return nil, ErrMissingPackageName
+	}
+	if subscriptionID == "" {
+		return nil, ErrMissingSubscriptionID
+	}
+	if purchaseToken == "" {
+		return nil, ErrMissingPurchaseToken
+	}
+	if req == nil {
+		req = &androidpublisher.SubscriptionPurchasesDeferRequest{}
+	}
+	resp, err := s.raw.Purchases.Subscriptions.Defer(packageName, subscriptionID, purchaseToken, req).Context(ctx).Do()
+	if err != nil {
+		return nil, fmt.Errorf("subscriptions: defer failed: %w", err)
+	}
+	return resp, nil
+}
+
+func (s *Service) Revoke(ctx context.Context, packageName, subscriptionID, purchaseToken string) error {
+	if s == nil || s.raw == nil {
+		return ErrServiceNil
+	}
+	if packageName == "" {
+		return ErrMissingPackageName
+	}
+	if subscriptionID == "" {
+		return ErrMissingSubscriptionID
+	}
+	if purchaseToken == "" {
+		return ErrMissingPurchaseToken
+	}
+	if err := s.raw.Purchases.Subscriptions.Revoke(packageName, subscriptionID, purchaseToken).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("subscriptions: revoke failed: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) RevokeV2(ctx context.Context, packageName, purchaseToken string, req *androidpublisher.RevokeSubscriptionPurchaseRequest) error {
+	if s == nil || s.raw == nil {
+		return ErrServiceNil
+	}
+	if packageName == "" {
+		return ErrMissingPackageName
+	}
+	if purchaseToken == "" {
+		return ErrMissingPurchaseToken
+	}
+	if req == nil {
+		req = &androidpublisher.RevokeSubscriptionPurchaseRequest{}
+	}
+	if _, err := s.raw.Purchases.Subscriptionsv2.Revoke(packageName, purchaseToken, req).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("subscriptions: revoke v2 failed: %w", err)
+	}
+	return nil
+}
+
 func (s *Service) Refund(ctx context.Context, packageName, subscriptionID, purchaseToken string) error {
 	if s == nil || s.raw == nil {
 		return ErrServiceNil

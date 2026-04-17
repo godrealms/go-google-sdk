@@ -139,6 +139,21 @@ func TestBatchUpdateSucceeds(t *testing.T) {
 	}
 }
 
+func TestBatchDeleteSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	path := "/androidpublisher/v3/applications/" + pkg + "/inappproducts:batchDelete"
+
+	svc, closeFunc := newTestService(t, path, http.MethodPost, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	req := &androidpublisher.InappproductsBatchDeleteRequest{}
+	if err := svc.BatchDelete(context.Background(), pkg, req); err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+}
+
 func TestRequiresPackageName(t *testing.T) {
 	t.Parallel()
 

@@ -108,6 +108,89 @@ func TestRefundPropagatesAPIError(t *testing.T) {
 	}
 }
 
+func TestAcknowledgeSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	const subID = "sub-1"
+	const tok = "tok-1"
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/subscriptions/" + subID + "/tokens/" + tok + ":acknowledge"
+
+	svc, closeFunc := newTestService(t, path, http.MethodPost, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	if err := svc.Acknowledge(context.Background(), pkg, subID, tok); err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+}
+
+func TestCancelSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	const subID = "sub-1"
+	const tok = "tok-1"
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/subscriptions/" + subID + "/tokens/" + tok + ":cancel"
+
+	svc, closeFunc := newTestService(t, path, http.MethodPost, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	if err := svc.Cancel(context.Background(), pkg, subID, tok); err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+}
+
+func TestDeferSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	const subID = "sub-1"
+	const tok = "tok-1"
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/subscriptions/" + subID + "/tokens/" + tok + ":defer"
+
+	svc, closeFunc := newTestService(t, path, http.MethodPost, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	resp, err := svc.Defer(context.Background(), pkg, subID, tok, nil)
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if resp == nil {
+		t.Fatalf("expected non-nil response")
+	}
+}
+
+func TestRevokeSucceeds(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	const subID = "sub-1"
+	const tok = "tok-1"
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/subscriptions/" + subID + "/tokens/" + tok + ":revoke"
+
+	svc, closeFunc := newTestService(t, path, http.MethodPost, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	if err := svc.Revoke(context.Background(), pkg, subID, tok); err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+}
+
+func TestRevokeV2Succeeds(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	const tok = "tok-1"
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/subscriptionsv2/tokens/" + tok + ":revoke"
+
+	svc, closeFunc := newTestService(t, path, http.MethodPost, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	if err := svc.RevokeV2(context.Background(), pkg, tok, nil); err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+}
+
 func newTestService(t *testing.T, expectedPath, expectedMethod string, status int, body string) (*subscriptions.Service, func()) {
 	t.Helper()
 

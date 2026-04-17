@@ -88,6 +88,19 @@ func (s *Service) BatchGet(ctx context.Context, packageName string, skus []strin
 	return s.raw.Inappproducts.BatchGet(packageName).Sku(skus...).Context(ctx).Do()
 }
 
+func (s *Service) BatchDelete(ctx context.Context, packageName string, req *androidpublisher.InappproductsBatchDeleteRequest) error {
+	if s == nil || s.raw == nil {
+		return ErrServiceNil
+	}
+	if packageName == "" {
+		return ErrMissingPackageName
+	}
+	if req == nil {
+		return ErrMissingRequest
+	}
+	return s.raw.Inappproducts.BatchDelete(packageName, req).Context(ctx).Do()
+}
+
 func (s *Service) BatchUpdate(ctx context.Context, packageName string, req *androidpublisher.InappproductsBatchUpdateRequest) (*androidpublisher.InappproductsBatchUpdateResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, errors.New("inappproducts: service is nil")
