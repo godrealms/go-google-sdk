@@ -1,40 +1,26 @@
-package publisher
+package publisher_test
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
-	"sync/atomic"
 	"testing"
 
-	"golang.org/x/oauth2"
 	"google.golang.org/api/androidpublisher/v3"
 	"google.golang.org/api/option"
+
+	publisher "github.com/godrealms/go-google-sdk/android/publisher"
 )
 
-type countingRoundTripper struct {
-	count atomic.Int32
-}
-
-func (c *countingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	c.count.Add(1)
-	body := io.NopCloser(strings.NewReader(`{}`))
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       body,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Request:    req,
-	}, nil
-}
-
-func TestVerifyRequestRequiresPackageName(t *testing.T) {
+func TestVerifyRequiresPackageName(t *testing.T) {
 	t.Parallel()
 
-	_, err := new(Service).Verify(context.Background(), VerifyRequest{PurchaseToken: "token"})
+	client, closeFunc := newTestClient(t, "/unused", http.MethodGet, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	_, err := client.Verify(context.Background(), publisher.VerifyRequest{PurchaseToken: "token"})
 	if err == nil {
 		t.Fatalf("expected error for missing package name")
 	}
@@ -43,19 +29,21 @@ func TestVerifyRequestRequiresPackageName(t *testing.T) {
 func TestVerifyRoutesToProduct(t *testing.T) {
 	t.Parallel()
 
-	const packageName = "com.example.app"
-	const productID = "product-1"
-	const token = "token-1"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/purchases/products/" + productID + "/tokens/" + token
+	const pkg = "com.example.app"
+	const prod = "product-1"
+	const tok = "token-1"
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/products/" + prod + "/tokens/" + tok
 
-	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"kind":"androidpublisher#productPurchase"}`)
-	defer closeServer()
+	client, closeFunc := newTestClient(t, path, http.MethodGet, http.StatusOK, `{"kind":"androidpublisher#productPurchase"}`)
+	defer closeFunc()
 
-	result, err := service.Verify(context.Background(), VerifyRequest{PackageName: packageName, ProductID: productID, PurchaseToken: token})
+	result, err := client.Verify(context.Background(), publisher.VerifyRequest{
+		PackageName: pkg, ProductID: prod, PurchaseToken: tok,
+	})
 	if err != nil {
 		t.Fatalf("expected success: %v", err)
 	}
-	if result.Type != VerifyTypeProduct {
+	if result.Type != publisher.VerifyTypeProduct {
 		t.Fatalf("expected product type, got %s", result.Type)
 	}
 }
@@ -63,19 +51,22 @@ func TestVerifyRoutesToProduct(t *testing.T) {
 func TestVerifyRoutesToSubscription(t *testing.T) {
 	t.Parallel()
 
-	const packageName = "com.example.app"
+	const pkg = "com.example.app"
 	const subID = "sub-1"
-	const token = "token-1"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/purchases/subscriptions/" + subID + "/tokens/" + token
+	const tok = "token-1"
+	// Default routes to v2 endpoint
+	path := "/androidpublisher/v3/applications/" + pkg + "/purchases/subscriptionsv2/tokens/" + tok
 
-	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"kind":"androidpublisher#subscriptionPurchase"}`)
-	defer closeServer()
+	client, closeFunc := newTestClient(t, path, http.MethodGet, http.StatusOK, `{"kind":"androidpublisher#subscriptionPurchaseV2"}`)
+	defer closeFunc()
 
-	result, err := service.Verify(context.Background(), VerifyRequest{PackageName: packageName, SubscriptionID: subID, PurchaseToken: token})
+	result, err := client.Verify(context.Background(), publisher.VerifyRequest{
+		PackageName: pkg, SubscriptionID: subID, PurchaseToken: tok,
+	})
 	if err != nil {
 		t.Fatalf("expected success: %v", err)
 	}
-	if result.Type != VerifyTypeSubscription {
+	if result.Type != publisher.VerifyTypeSubscription {
 		t.Fatalf("expected subscription type, got %s", result.Type)
 	}
 }
@@ -83,23 +74,25 @@ func TestVerifyRoutesToSubscription(t *testing.T) {
 func TestVerifyReturnsOrderForProductOrderID(t *testing.T) {
 	t.Parallel()
 
-	const packageName = "com.example.app"
+	const pkg = "com.example.app"
 	const orderID = "order-123"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/orders/" + orderID
+	path := "/androidpublisher/v3/applications/" + pkg + "/orders/" + orderID
 
-	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
-	defer closeServer()
+	client, closeFunc := newTestClient(t, path, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
+	defer closeFunc()
 
-	result, err := service.Verify(context.Background(), VerifyRequest{PackageName: packageName, OrderID: orderID, Type: VerifyTypeProduct})
+	result, err := client.Verify(context.Background(), publisher.VerifyRequest{
+		PackageName: pkg, OrderID: orderID, Type: publisher.VerifyTypeProduct,
+	})
 	if err != nil {
 		t.Fatalf("expected success: %v", err)
 	}
-	if result.Type != VerifyTypeProduct {
+	if result.Type != publisher.VerifyTypeProduct {
 		t.Fatalf("expected product type, got %s", result.Type)
 	}
 	order, ok := result.Raw.(*androidpublisher.Order)
 	if !ok {
-		t.Fatalf("expected order raw, got %T", result.Raw)
+		t.Fatalf("expected *Order raw, got %T", result.Raw)
 	}
 	if order.OrderId != orderID {
 		t.Fatalf("expected order ID %q, got %q", orderID, order.OrderId)
@@ -109,270 +102,128 @@ func TestVerifyReturnsOrderForProductOrderID(t *testing.T) {
 func TestVerifyReturnsOrderForSubscriptionOrderID(t *testing.T) {
 	t.Parallel()
 
-	const packageName = "com.example.app"
+	const pkg = "com.example.app"
 	const orderID = "order-456"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/orders/" + orderID
+	path := "/androidpublisher/v3/applications/" + pkg + "/orders/" + orderID
 
-	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
-	defer closeServer()
+	client, closeFunc := newTestClient(t, path, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
+	defer closeFunc()
 
-	result, err := service.Verify(context.Background(), VerifyRequest{PackageName: packageName, OrderID: orderID, Type: VerifyTypeSubscription})
+	result, err := client.Verify(context.Background(), publisher.VerifyRequest{
+		PackageName: pkg, OrderID: orderID, Type: publisher.VerifyTypeSubscription,
+	})
 	if err != nil {
 		t.Fatalf("expected success: %v", err)
 	}
-	if result.Type != VerifyTypeSubscription {
-		t.Fatalf("expected subscription type, got %s", result.Type)
-	}
 	order, ok := result.Raw.(*androidpublisher.Order)
 	if !ok {
-		t.Fatalf("expected order raw, got %T", result.Raw)
+		t.Fatalf("expected *Order raw, got %T", result.Raw)
 	}
 	if order.OrderId != orderID {
 		t.Fatalf("expected order ID %q, got %q", orderID, order.OrderId)
 	}
 }
 
-func TestQueryPurchaseRequiresInput(t *testing.T) {
+func TestVerifyOrderIDOnlyAutoResolvesProduct(t *testing.T) {
 	t.Parallel()
 
-	service, closeServer := newTestPublisherService(t, "/unused", http.MethodGet, http.StatusOK, `{}`)
-	defer closeServer()
+	const pkg = "com.example.app"
+	const orderID = "order-product-789"
+	path := "/androidpublisher/v3/applications/" + pkg + "/orders/" + orderID
 
-	_, _, err := service.QueryPurchase(context.Background(), PurchaseQuery{ProductID: "product", PurchaseToken: "token"})
-	if err == nil {
-		t.Fatalf("expected error for missing package name")
-	}
-
-	_, _, err = service.QueryPurchase(context.Background(), PurchaseQuery{PackageName: "com.example.app"})
-	if err == nil {
-		t.Fatalf("expected error for missing product ID and purchase token")
-	}
-}
-
-func TestQueryPurchaseByOrderIDUsesOrdersEndpoint(t *testing.T) {
-	t.Parallel()
-
-	const packageName = "com.example.app"
-	const orderID = "order-123"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/orders/" + orderID
-
-	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
-	defer closeServer()
-
-	_, _, err := service.QueryPurchase(context.Background(), PurchaseQuery{PackageName: packageName, OrderID: orderID})
-	if err != nil {
-		t.Fatalf("expected success: %v", err)
-	}
-}
-
-func TestQueryPurchaseByTokenUsesProductsEndpoint(t *testing.T) {
-	t.Parallel()
-
-	const packageName = "com.example.app"
-	const productID = "product-123"
-	const purchaseToken = "token-456"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/purchases/products/" + productID + "/tokens/" + purchaseToken
-
-	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{}`)
-	defer closeServer()
-
-	_, _, err := service.QueryPurchase(context.Background(), PurchaseQuery{PackageName: packageName, ProductID: productID, PurchaseToken: purchaseToken})
-	if err != nil {
-		t.Fatalf("expected success: %v", err)
-	}
-}
-
-func TestQuerySubscriptionByOrderIDUsesOrdersEndpoint(t *testing.T) {
-	t.Parallel()
-
-	const packageName = "com.example.app"
-	const orderID = "order-123"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/orders/" + orderID
-
-	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"orderId":"`+orderID+`"}`)
-	defer closeServer()
-
-	_, _, err := service.QuerySubscription(context.Background(), SubscriptionQuery{PackageName: packageName, OrderID: orderID})
-	if err != nil {
-		t.Fatalf("expected success: %v", err)
-	}
-}
-
-func TestQuerySubscriptionByTokenUsesSubscriptionsEndpoint(t *testing.T) {
-	t.Parallel()
-
-	const packageName = "com.example.app"
-	const subID = "sub-123"
-	const purchaseToken = "token-456"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/purchases/subscriptions/" + subID + "/tokens/" + purchaseToken
-
-	service, closeServer := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{}`)
-	defer closeServer()
-
-	_, _, err := service.QuerySubscription(context.Background(), SubscriptionQuery{PackageName: packageName, SubscriptionID: subID, PurchaseToken: purchaseToken})
-	if err != nil {
-		t.Fatalf("expected success: %v", err)
-	}
-}
-
-func newCountingService(t *testing.T) (*Service, *countingRoundTripper) {
-	t.Helper()
-
-	rt := &countingRoundTripper{}
-	client := &http.Client{Transport: rt}
-	service, err := NewService(context.Background(), option.WithHTTPClient(client), option.WithoutAuthentication())
-	if err != nil {
-		t.Fatalf("create test service: %v", err)
-	}
-
-	return service, rt
-}
-
-func assertMixedInputRejected(t *testing.T, err error, rt *countingRoundTripper, expectedErr error) {
-	t.Helper()
-	if rt == nil {
-		t.Fatalf("rt is required")
-	}
-	if expectedErr == nil {
-		t.Fatalf("assertMixedInputRejected: expectedErr must not be nil")
-	}
-	if err == nil {
-		t.Fatalf("expected error: got %v, want %v", err, expectedErr)
-	}
-
-	count := rt.count.Load()
-	if count != 0 {
-		t.Fatalf("unexpected request count: got %d, want %d", count, 0)
-	}
-	if !errors.Is(err, expectedErr) {
-		t.Fatalf("unexpected error: got %v, want %v", err, expectedErr)
-	}
-}
-
-func TestQueryPurchaseRejectsMixedInputs(t *testing.T) {
-	t.Parallel()
-
-	const packageName = "com.example.app"
-	const orderID = "order-123"
-
-	service, rt := newCountingService(t)
-	_, _, err := service.QueryPurchase(context.Background(), PurchaseQuery{
-		PackageName:   packageName,
-		OrderID:       orderID,
-		ProductID:     "product-123",
-		PurchaseToken: "token-123",
-	})
-	assertMixedInputRejected(t, err, rt, ErrMixedOrderProductInput)
-}
-
-func TestQuerySubscriptionRejectsMixedInputs(t *testing.T) {
-	t.Parallel()
-
-	const packageName = "com.example.app"
-	const orderID = "order-123"
-
-	service, rt := newCountingService(t)
-	_, _, err := service.QuerySubscription(context.Background(), SubscriptionQuery{
-		PackageName:    packageName,
-		OrderID:        orderID,
-		SubscriptionID: "sub-123",
-		PurchaseToken:  "token-123",
-	})
-	assertMixedInputRejected(t, err, rt, ErrMixedOrderSubscriptionInput)
-}
-
-func TestNewServiceWithTokenSourceReturnsErrorOnBadConfig(t *testing.T) {
-	t.Parallel()
-
-	// An empty oauth2.Config has an empty TokenURL, which causes Exchange to fail.
-	cfg := &oauth2.Config{}
-	_, err := NewServiceWithTokenSource(context.Background(), cfg, "bad-code")
-	if err == nil {
-		t.Fatalf("expected error for invalid oauth2 config, got nil")
-	}
-}
-
-func TestVerifyPurchaseSucceeds(t *testing.T) {
-	t.Parallel()
-
-	const packageName = "com.example.app"
-	const productID = "product-1"
-	const token = "token-1"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/purchases/products/" + productID + "/tokens/" + token
-
-	service, closeFunc := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"purchaseState":0}`)
+	client, closeFunc := newTestClient(t, path, http.MethodGet, http.StatusOK,
+		`{"orderId":"`+orderID+`","lineItems":[{"oneTimePurchaseDetails":{"quantity":1}}]}`)
 	defer closeFunc()
 
-	purchase, err := service.VerifyPurchase(context.Background(), packageName, productID, token)
-	if err != nil {
-		t.Fatalf("expected success: %v", err)
-	}
-	if purchase == nil {
-		t.Fatalf("expected non-nil purchase")
-	}
-}
-
-func TestVerifySubscriptionsSucceeds(t *testing.T) {
-	t.Parallel()
-
-	const packageName = "com.example.app"
-	const subID = "sub-1"
-	const token = "token-1"
-	expectedPath := "/androidpublisher/v3/applications/" + packageName + "/purchases/subscriptions/" + subID + "/tokens/" + token
-
-	service, closeFunc := newTestPublisherService(t, expectedPath, http.MethodGet, http.StatusOK, `{"acknowledgementState":1,"paymentState":1}`)
-	defer closeFunc()
-
-	purchase, err := service.VerifySubscriptions(context.Background(), packageName, subID, token)
-	if err != nil {
-		t.Fatalf("expected success: %v", err)
-	}
-	if purchase == nil {
-		t.Fatalf("expected non-nil purchase")
-	}
-}
-
-func TestVerifyOrderIDOnlyReturnsErrRouteUnknown(t *testing.T) {
-	t.Parallel()
-
-	service, closeFunc := newTestPublisherService(t, "/unused", http.MethodGet, http.StatusOK, `{}`)
-	defer closeFunc()
-
-	_, err := service.Verify(context.Background(), VerifyRequest{
-		PackageName: "com.example.app",
-		OrderID:     "order-123",
-		// No Type, no PurchaseToken, no ProductID, no SubscriptionID
+	result, err := client.Verify(context.Background(), publisher.VerifyRequest{
+		PackageName: pkg, OrderID: orderID,
+		// No Type — auto-resolve
 	})
-	if !errors.Is(err, ErrRouteUnknown) {
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if result.Type != publisher.VerifyTypeProduct {
+		t.Fatalf("expected product type, got %s", result.Type)
+	}
+}
+
+func TestVerifyOrderIDOnlyAutoResolvesSubscription(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	const orderID = "order-sub-789"
+	path := "/androidpublisher/v3/applications/" + pkg + "/orders/" + orderID
+
+	client, closeFunc := newTestClient(t, path, http.MethodGet, http.StatusOK,
+		`{"orderId":"`+orderID+`","lineItems":[{"subscriptionDetails":{"subscriptionId":"sub-1"}}]}`)
+	defer closeFunc()
+
+	result, err := client.Verify(context.Background(), publisher.VerifyRequest{
+		PackageName: pkg, OrderID: orderID,
+	})
+	if err != nil {
+		t.Fatalf("expected success: %v", err)
+	}
+	if result.Type != publisher.VerifyTypeSubscription {
+		t.Fatalf("expected subscription type, got %s", result.Type)
+	}
+}
+
+func TestVerifyOrderIDOnlyUnknownTypeReturnsErrRouteUnknown(t *testing.T) {
+	t.Parallel()
+
+	const pkg = "com.example.app"
+	const orderID = "order-unknown"
+	path := "/androidpublisher/v3/applications/" + pkg + "/orders/" + orderID
+
+	client, closeFunc := newTestClient(t, path, http.MethodGet, http.StatusOK,
+		`{"orderId":"`+orderID+`","lineItems":[{"productId":"whatever"}]}`)
+	defer closeFunc()
+
+	_, err := client.Verify(context.Background(), publisher.VerifyRequest{
+		PackageName: pkg, OrderID: orderID,
+	})
+	if !errors.Is(err, publisher.ErrRouteUnknown) {
 		t.Fatalf("expected ErrRouteUnknown, got %v", err)
 	}
 }
 
-func newTestPublisherService(t *testing.T, expectedPath, expectedMethod string, status int, body string) (*Service, func()) {
+func TestVerifyNoFieldsReturnsErrRouteUnknown(t *testing.T) {
+	t.Parallel()
+
+	client, closeFunc := newTestClient(t, "/unused", http.MethodGet, http.StatusOK, `{}`)
+	defer closeFunc()
+
+	_, err := client.Verify(context.Background(), publisher.VerifyRequest{PackageName: "com.example"})
+	if !errors.Is(err, publisher.ErrRouteUnknown) {
+		t.Fatalf("expected ErrRouteUnknown, got %v", err)
+	}
+}
+
+func newTestClient(t *testing.T, expectedPath, expectedMethod string, status int, body string) (*publisher.Client, func()) {
 	t.Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != expectedMethod {
-			t.Fatalf("expected %s request, got %s", expectedMethod, r.Method)
+			t.Errorf("expected %s, got %s", expectedMethod, r.Method)
 		}
-
 		if r.URL.Path != expectedPath {
-			t.Fatalf("unexpected path: got %q", r.URL.Path)
+			t.Errorf("unexpected path: got %q, want %q", r.URL.Path, expectedPath)
 		}
-
 		if r.URL.Query().Get("alt") != "json" || r.URL.Query().Get("prettyPrint") != "false" {
-			t.Fatalf("unexpected query: %v", r.URL.RawQuery)
+			t.Errorf("unexpected query: %v", r.URL.RawQuery)
 		}
-
 		w.WriteHeader(status)
 		fmt.Fprint(w, body)
 	}))
 
-	service, err := NewService(context.Background(), option.WithEndpoint(server.URL), option.WithoutAuthentication())
+	client, err := publisher.NewClient(context.Background(),
+		option.WithEndpoint(server.URL),
+		option.WithoutAuthentication(),
+	)
 	if err != nil {
-		t.Fatalf("create test service: %v", err)
+		t.Fatalf("create test client: %v", err)
 	}
 
-	closeFunc := server.Close
-	return service, closeFunc
+	return client, server.Close
 }

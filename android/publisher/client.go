@@ -12,9 +12,9 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-// NewClient creates an HTTP client from various credential sources.
+// NewHTTPClient creates an HTTP client from various credential sources.
 // Accepts a string path, []byte JSON, OAuth2 struct, io.Reader, or nil for ADC.
-func NewClient(ctx context.Context, config any) (*http.Client, error) {
+func NewHTTPClient(ctx context.Context, config any) (*http.Client, error) {
 	var jsonKey []byte
 	var err error
 
