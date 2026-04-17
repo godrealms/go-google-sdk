@@ -33,3 +33,7 @@ go.work.sum
 
 # Git worktrees
 .worktrees/
+
+# Local planning / brainstorming artifacts (not shipped)
+docs/plans/
+docs/superpowers/

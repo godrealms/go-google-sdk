@@ -4,35 +4,59 @@
 [![GoDoc](https://godoc.org/github.com/godrealms/go-google-sdk?status.svg)](https://godoc.org/github.com/godrealms/go-google-sdk)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-一个功能完整的 Go 语言 Google 服务 SDK，提供 Google Play Developer API 和 Google Pay 支付处理的完整解决方案。
+一个功能完整的 Go 语言 Google 服务 SDK，全量覆盖 **Google Play Developer Publisher API v3** 的 137 个 REST 方法，并提供 Google Pay Token 解密与 Pub/Sub 实时开发者通知（RTDN）监听。
+
+## 目录
+
+- [特性](#特性)
+- [支持的服务](#支持的服务)
+- [安装](#安装)
+- [依赖项](#依赖项)
+- [认证方式](#认证方式)
+- [快速开始](#快速开始)
+- [Publisher 子模块一览](#publisher-子模块一览)
+- [错误处理](#错误处理)
+- [实时开发者通知 (RTDN)](#实时开发者通知-rtdn)
+- [API 参考](#api-参考)
+- [最佳实践](#最佳实践)
+- [贡献指南](#贡献指南)
+- [许可证](#许可证)
+- [更新日志](#更新日志)
 
 ## 特性
 
-- 🚀 **Google Play Developer API** - 应用内购买验证、订阅管理
-- 💳 **Google Pay 支付处理** - Token 解密、签名验证、密钥管理
-- 🔔 **实时开发者通知** - Google Cloud Pub/Sub RTDN 监听
-- 🔐 **多种认证方式** - 服务账户、OAuth2、默认凭据
-- 🛡️ **安全加密** - ECDSA 签名验证、AES-GCM 解密
-- 📊 **智能缓存** - 密钥缓存、Token 缓存机制
-- 🔧 **灵活配置** - 环境切换、超时控制、日志管理
+- 🚀 **Publisher API 全量覆盖** — 137 个 REST 方法零遗漏，拆分为 18 个职责清晰的子包
+- 💳 **Google Pay 支付处理** — ECv1/ECv2 Token 解密、ECDSA 签名验证、根密钥自动刷新
+- 🔔 **实时开发者通知 (RTDN)** — Google Cloud Pub/Sub 订阅监听与消息路由
+- 🔐 **多种认证方式** — Application Default Credentials、OAuth2 授权码、API Key、服务账户
+- 🎯 **统一购买验证** — `client.Verify()` 基于 ProductID / SubscriptionID / OrderID 自动路由
+- 🧩 **Options 模式** — 所有可选查询参数通过 `XxxOptions` struct 传递，向后兼容
+- 🛡️ **哨兵错误** — 每个子包导出 `ErrMissingXxx` 等命名错误，便于 `errors.Is` 判断
+- 📦 **资源名与 packageName 双模式** — 同时支持 `developers/{id}/users/{email}` 与 `com.example.app` 两类路径模板
 
 ## 支持的服务
 
-### Google Play Developer API
+### Google Play Developer Publisher API（v3）
 
-- ✅ 应用内购买验证
-- ✅ 订阅管理和验证
-- ✅ 实时开发者通知处理
-- ✅ 购买确认和撤销
+| 分类 | 覆盖范围 |
+|---|---|
+| 购买与订阅验证 | `purchases` / `subscriptions` / `voidedpurchases` / `orders` |
+| 商品目录 | `inappproducts` / `monetization.onetimeproducts` / `monetization.subscriptions` |
+| 用户评论 | `reviews`（Get / List / Reply） |
+| 用户权限 | `users` / `grants`（Play Console 用户与应用授权） |
+| 外部交易 | `externaltransactions`（替代计费 / 用户选择计费） |
+| 应用元数据 | `applications`（数据安全、设备层级配置、版本轨道） |
+| 应用恢复 | `apprecovery`（AddTargeting / Cancel / Create / Deploy / List） |
+| 构建分发 | `generatedapks` / `systemapks` / `internalappsharing` |
+| 发布编辑 | `edits`（APK/Bundle、listings、tracks、testers、images 等完整生命周期） |
 
 ### Google Pay 支付处理
 
-- ✅ 加密 Token 解密
+- ✅ 加密 Token 解密（ECv1 / ECv2）
 - ✅ ECDSA 签名验证
-- ✅ 密钥自动管理和刷新
-- ✅ 支持 ECv1 和 ECv2 协议
-- ✅ 卡片信息提取
-- ✅ 3DS 认证信息处理
+- ✅ Google 根密钥自动管理与定期刷新
+- ✅ 卡片信息提取（PAN / 过期时间 / 卡网络）
+- ✅ 3DS 认证信息处理（Cryptogram / ECI Indicator）
 
 ## 安装
 
@@ -40,15 +64,50 @@
 go get github.com/godrealms/go-google-sdk
 ```
 
+要求：Go 1.25 或更高。
+
 ## 依赖项
 
 ```go
 require (
-golang.org/x/oauth2 v0.15.0
-google.golang.org/api v0.153.0
-cloud.google.com/go/pubsub v1.33.0
+    google.golang.org/api v0.276.0
+    golang.org/x/oauth2 v0.25.0
+    cloud.google.com/go/pubsub v1.45.1
 )
 ```
+
+## 认证方式
+
+Publisher 客户端支持三种认证方式，按场景选择：
+
+```go
+import (
+    "context"
+
+    "golang.org/x/oauth2"
+    "google.golang.org/api/option"
+
+    "github.com/godrealms/go-google-sdk/android/publisher"
+)
+
+ctx := context.Background()
+
+// 方式 1：Application Default Credentials（推荐：GCP 环境、工作负载身份联合）
+client, err := publisher.NewClient(ctx)
+
+// 方式 2：服务账户 JSON 密钥文件
+client, err := publisher.NewClient(ctx,
+    option.WithCredentialsFile("/path/to/service-account.json"))
+
+// 方式 3：OAuth2 授权码交换（面向用户授权的工具）
+oauthConfig := &oauth2.Config{ /* ClientID / ClientSecret / Scopes... */ }
+client, err := publisher.NewClientWithTokenSource(ctx, oauthConfig, "authorization-code")
+
+// 方式 4：API Key（仅适用于少数公开接口）
+client, err := publisher.NewClientWithKey(ctx, "your-api-key")
+```
+
+所需 OAuth2 Scope：`https://www.googleapis.com/auth/androidpublisher`。
 
 ## 快速开始
 
@@ -101,7 +160,109 @@ func main() {
 }
 ```
 
-### 2. Google Pay 支付处理
+### 2. 其他 Publisher 子模块速览
+
+```go
+// --- 用户评论：批量回复 1 星评价 ---
+list, _ := client.Reviews.List(ctx, "com.example.app", reviews.ListOptions{MaxResults: 50})
+for _, r := range list.Reviews {
+    _, _ = client.Reviews.Reply(ctx, "com.example.app", r.ReviewId, "感谢反馈，我们已在最新版本修复此问题。")
+}
+
+// --- Play Console 用户管理 ---
+_, _ = client.Users.Create(ctx, "developers/1234567890", &androidpublisher.User{
+    Email:         "teammate@example.com",
+    DeveloperAccountPermissions: []string{"CAN_VIEW_NON_FINANCIAL_DATA_GLOBAL"},
+})
+
+// --- 应用恢复：回滚线上崩溃版本 ---
+action, _ := client.AppRecovery.Create(ctx, "com.example.app",
+    &androidpublisher.CreateDraftAppRecoveryRequest{VersionCode: 42})
+_, _ = client.AppRecovery.Deploy(ctx, "com.example.app", action.AppRecoveryId, nil)
+
+// --- Edits 发布流程：插入 → 上传 AAB → 分配到 production → 提交 ---
+edit, _ := client.Edits.Insert(ctx, "com.example.app", nil)
+bundle, _ := client.Edits.BundlesUpload(ctx, "com.example.app", edit.Id,
+    aabFile, edits.BundlesUploadOptions{})
+_, _ = client.Edits.TracksUpdate(ctx, "com.example.app", edit.Id, "production", &androidpublisher.Track{
+    Releases: []*androidpublisher.TrackRelease{{
+        VersionCodes: []int64{bundle.VersionCode},
+        Status:       "completed",
+    }},
+})
+_, _ = client.Edits.Commit(ctx, "com.example.app", edit.Id, edits.CommitOptions{})
+
+// --- 一次性商品目录：批量查询 ---
+_, _ = client.OneTimeProducts.BatchGet(ctx, "com.example.app",
+    &androidpublisher.BatchGetOneTimeProductsRequest{ProductIds: []string{"coin_100", "coin_500"}})
+
+// --- 订阅定价：跨区域换算 ---
+_, _ = client.MonetizationSubscriptions.ConvertRegionPrices(ctx, "com.example.app",
+    &androidpublisher.ConvertRegionPricesRequest{Price: &androidpublisher.Money{
+        CurrencyCode: "USD", Units: 9, Nanos: 990000000,
+    }})
+```
+
+> 💡 每个子模块的完整用法、方法签名、REST 端点请见 [`docs/publisher/`](docs/publisher/README.md)。
+
+## Publisher 子模块一览
+
+| 子服务 | 职责 | 文档 |
+|---|---|---|
+| `client.Purchases` | 一次性内购确认 / 消费 / 查询 / 退款 | [purchases/purchases.md](docs/publisher/purchases/purchases.md) |
+| `client.Subscriptions` | 订阅查询（v2/v1）与全生命周期管理 | [purchases/subscriptions.md](docs/publisher/purchases/subscriptions.md) |
+| `client.Orders` | 订单详情、退款、批量查询 | [purchases/orders.md](docs/publisher/purchases/orders.md) |
+| `client.InAppProducts` | 应用内商品（旧接口）CRUD + 批量 | [catalog/inappproducts.md](docs/publisher/catalog/inappproducts.md) |
+| `client.VoidedPurchases` | 已撤销购买列表（欺诈 / 退款审计） | [purchases/voidedpurchases.md](docs/publisher/purchases/voidedpurchases.md) |
+| `client.OneTimeProducts` | 一次性商品（新接口）+ purchaseOptions + offers | [catalog/monetization-onetimeproducts.md](docs/publisher/catalog/monetization-onetimeproducts.md) |
+| `client.MonetizationSubscriptions` | 订阅商品（新接口）+ basePlans + offers + 区域定价 | [catalog/monetization-subscriptions.md](docs/publisher/catalog/monetization-subscriptions.md) |
+| `client.Reviews` | 用户评论查询与回复 | [console/reviews.md](docs/publisher/console/reviews.md) |
+| `client.Users` / `client.Grants` | Play Console 成员与应用授权 | [console/users-grants.md](docs/publisher/console/users-grants.md) |
+| `client.ExternalTransactions` | 替代计费 / 用户选择计费交易 | [console/externaltransactions.md](docs/publisher/console/externaltransactions.md) |
+| `client.Applications` | 数据安全、设备层级配置、跨轨道发布 | [publishing/applications.md](docs/publisher/publishing/applications.md) |
+| `client.AppRecovery` | 应用恢复（回滚、定向、灰度部署） | [publishing/apprecovery.md](docs/publisher/publishing/apprecovery.md) |
+| `client.GeneratedAPKs` / `client.SystemAPKs` | Play 生成的分发件与系统镜像变体 | [publishing/generatedapks-systemapks.md](docs/publisher/publishing/generatedapks-systemapks.md) |
+| `client.InternalAppSharing` | 内部共享链接的 APK / AAB 上传 | [publishing/internalappsharing.md](docs/publisher/publishing/internalappsharing.md) |
+| `client.Edits` | 完整的编辑会话生命周期（APK/Bundle/track/listing/...） | [publishing/edits.md](docs/publisher/publishing/edits.md) |
+
+顶层还提供 `client.Verify(ctx, VerifyRequest)` 统一购买验证入口，以及 [RTDN 监听](docs/rtdn/rtdn.md) 与 [Google Pay Token 解密](docs/pay/pay.md)。
+
+## 错误处理
+
+所有子包均导出命名哨兵错误，推荐使用 `errors.Is` 判别：
+
+```go
+import (
+    "errors"
+
+    "github.com/godrealms/go-google-sdk/android/publisher/purchases"
+)
+
+_, err := client.Purchases.Query(ctx, "com.example.app", "", "token")
+switch {
+case errors.Is(err, purchases.ErrMissingProductID):
+    // 请求缺少商品 ID，属于调用方参数错误
+case errors.Is(err, purchases.ErrServiceNil):
+    // 客户端未初始化
+case err != nil:
+    // Google API 返回的 *googleapi.Error 等业务错误
+}
+```
+
+常见错误约定：
+
+| 错误 | 触发场景 |
+|---|---|
+| `ErrServiceNil` | 子服务或其内部 `*androidpublisher.Service` 为 nil |
+| `ErrMissingPackageName` | 未提供 `packageName` |
+| `ErrMissingProductID` / `ErrMissingSubscriptionID` / `ErrMissingToken` | 相关路径参数缺失 |
+| `ErrMissingOrderID` | 订单级接口缺 `orderId` |
+| `ErrMissingMedia` / `ErrMissingVersion` / `ErrMissingVariantID` | 上传 / 版本相关接口参数缺失 |
+| `ErrMissingRequest` / `ErrMissingBody` | 必填的请求体为空 |
+
+Google API 层返回的 HTTP 错误仍为 `*googleapi.Error`，可进一步读取 `Code`、`Message`、`Errors[]` 等字段。
+
+### 3. Google Pay 支付处理
 
 #### 初始化 Google Pay 客户端
 
@@ -206,7 +367,7 @@ handlePurchaseNotification(notification.OneTimeProductNotification)
 
 ## API 参考
 
-> 📖 每个子模块的完整使用示例见 [`docs/modules/`](docs/modules/README.md)。
+> 📖 每个子模块的完整使用示例见 [`docs/publisher/`](docs/publisher/README.md)。
 
 ### Google Play Publisher
 
