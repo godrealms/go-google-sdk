@@ -54,55 +54,37 @@ cloud.google.com/go/pubsub v1.33.0
 
 ### 1. Google Play Developer API
 
-#### 初始化服务
-
 ```go
-package main
-
-import (
-	"context"
-	"log"
-
-	"github.com/godrealms/go-google-sdk/publisher"
-)
-
-func main() {
-	ctx := context.Background()
-
-	// 使用服务账户密钥文件
-	service, err := publisher.NewServiceWithKey(ctx, "/path/to/service-account.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// 验证购买
-	purchase, err := service.VerifyPurchase("com.example.app", "premium_upgrade", "purchase-token")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Purchase State: %d", purchase.PurchaseState)
-}
-```
-
-#### 验证订阅
-
-```go
-ctx := context.Background()
-
-// 使用服务账户密钥文件
-service, err := publisher.NewServiceWithKey(ctx, "/path/to/service-account.json")
+// 使用服务账户密钥文件初始化客户端
+client, err := publisher.NewClientWithKey(ctx, keyBytes)
 if err != nil {
-log.Fatal(err)
+    log.Fatal(err)
 }
 
-// 验证订阅
-subscription, err := service.VerifySubscriptions("com.example.app", "subscriptionId", "purchase-token")
-if err != nil {
-log.Fatal(err)
-}
+// 统一验证购买（自动根据 ProductID / SubscriptionID / OrderID 路由）
+result, err := client.Verify(ctx, publisher.VerifyRequest{
+    PackageName:   "com.example.app",
+    ProductID:     "sword_001",
+    PurchaseToken: "purchase-token-from-google-play",
+})
 
-log.Printf("Subscriptions State: %d", subscription.PaymentState)
+// 确认一次性内购（需在 3 天内确认）
+err = client.Purchases.Acknowledge(ctx, "com.example.app", "sword_001", "purchase-token")
+
+// 查询订阅详情（默认使用 v2 API）
+_, subResult, err := client.Subscriptions.Query(ctx, subscriptions.SubscriptionQuery{
+    PackageName:    "com.example.app",
+    SubscriptionID: "monthly_pro",
+    PurchaseToken:  "sub-token",
+})
+// subResult.V2 包含 SubscriptionPurchaseV2
+
+// 列出应用内产品目录
+resp, err := client.InAppProducts.List(ctx, "com.example.app")
+
+// 列出已撤销购买（用于欺诈检测）
+voidedResp, err := client.VoidedPurchases.List(ctx, "com.example.app",
+    voidedpurchases.WithMaxResults(100))
 ```
 
 ### 2. Google Pay 支付处理
@@ -184,7 +166,17 @@ JsonKey:        "/path/to/service-account.json",
 }
 
 // 启动监听器
-go publisher.StartSubscriptionMonitor(config)
+errCh := make(chan error, 1)
+go publisher.StartSubscriptionMonitor(ctx, config, errCh, func(ctx context.Context, msg *pubsub.Message) {
+    // 处理通知
+    msg.Ack()
+})
+// 在另一个 goroutine 中监听错误
+go func() {
+    if err := <-errCh; err != nil {
+        log.Printf("RTDN 监听器错误: %v", err)
+    }
+}()
 }
 
 // 处理不同类型的通知
@@ -202,15 +194,14 @@ handlePurchaseNotification(notification.OneTimeProductNotification)
 
 ### Google Play Publisher
 
-| 方法                | 参数                                             | 返回值                                             | 描述        |
-|-------------------|------------------------------------------------|-------------------------------------------------|-----------|
-| `VerifyPurchase`  | packageName, productId, purchaseToken          | `*androidpublisher.ProductPurchase, error`      | 验证一次性产品购买 |
-| `VerifySubscriptions` | packageName, subscriptionId, purchaseToken | `*androidpublisher.SubscriptionPurchase, error` | 验证订阅购买    |
-| `QueryPurchase`   | ctx, packageName, productId, purchaseToken or orderId | `*androidpublisher.Order, *androidpublisher.ProductPurchase, error` | 查询一次性购买 |
-| `QuerySubscription` | ctx, packageName, subscriptionId, purchaseToken or orderId | `*androidpublisher.Order, *androidpublisher.SubscriptionPurchase, error` | 查询订阅 |
-| `Verify`          | ctx, request                                   | `*VerifyResult, error`                           | 统一校验入口 |
-| `RefundPurchase`  | ctx, packageName, orderId                      | `error`                                          | 退款一次性订单    |
-| `RefundSubscription` | ctx, packageName, subscriptionId, purchaseToken | `error`                                     | 退款订阅         |
+| 子包 | 方法 |
+|---|---|
+| `client.Purchases` | `Acknowledge`, `Consume`, `Query`, `Refund` |
+| `client.Subscriptions` | `Query`（v2/v1）, `Refund` |
+| `client.Orders` | `Get` |
+| `client.InAppProducts` | `List`, `Get`, `Insert`, `Update`, `Delete`, `BatchGet`, `BatchUpdate` |
+| `client.VoidedPurchases` | `List` |
+| `client`（顶层） | `Verify`（统一路由） |
 
 ### Google Pay Client
 
@@ -322,6 +313,26 @@ processPaymentToken(result)
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 更新日志
+
+### v0.0.4（2026-04-17 / `0bacb4e0aeb3629e757404e1e58a780ec199c307`）
+
+#### 变更要点
+
+- ⚠️ **Breaking**: `publisher.Service` 重命名为 `publisher.Client`；构造函数 `NewService*` → `NewClient*`
+- ⚠️ **Breaking**: `ErrNotFound` 已移除；`NewClient` 新增 `ctx` 参数；`StartSubscriptionMonitor` 新增 `ctx` + `errCh` 参数
+- ✅ 新增 `purchases.Acknowledge`、`purchases.Consume`（确认/消费内购）
+- ✅ 新增 `subscriptions.Query`（默认 v2，`UseV1: true` 可切换 v1）
+- ✅ 新增 `inappproducts` 子包（完整 CRUD + BatchGet/BatchUpdate）
+- ✅ 新增 `voidedpurchases` 子包（撤销购买列表）
+- ✅ `Verify(OrderID-only)` 现在通过 Orders API 自动解析产品类型
+- 🐛 修复 `NewClientWithTokenSource` 静默丢弃构造错误
+- 🐛 修复 `StartSubscriptionMonitor` 调用 `log.Fatalf` 问题
+
+#### 版本元信息
+
+- 📌 发布提交：`0bacb4e0aeb3629e757404e1e58a780ec199c307`
+- 📦 提交范围：`1e1cb1c..HEAD`
+- 🧪 验证：`go test ./...`
 
 ### v0.0.3（2026-02-15 19:55:54 +08:00 / `ec50628`）
 
