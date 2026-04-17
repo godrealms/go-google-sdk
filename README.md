@@ -2,7 +2,7 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/godrealms/go-google-sdk)](https://goreportcard.com/report/github.com/godrealms/go-google-sdk)
 [![GoDoc](https://godoc.org/github.com/godrealms/go-google-sdk?status.svg)](https://godoc.org/github.com/godrealms/go-google-sdk)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 一个功能完整的 Go 语言 Google 服务 SDK，提供 Google Play Developer API 和 Google Pay 支付处理的完整解决方案。
 
@@ -206,6 +206,8 @@ handlePurchaseNotification(notification.OneTimeProductNotification)
 
 ## API 参考
 
+> 📖 每个子模块的完整使用示例见 [`docs/modules/`](docs/modules/README.md)。
+
 ### Google Play Publisher
 
 | 子包 | 方法 |
@@ -336,7 +338,7 @@ processPaymentToken(result)
 
 ## 许可证
 
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+本项目采用 [Apache License 2.0](LICENSE) 开源协议。
 
 ## 更新日志
 
