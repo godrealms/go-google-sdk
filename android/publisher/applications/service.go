@@ -10,21 +10,31 @@ import (
 )
 
 var (
-	ErrServiceNil         = errors.New("applications: service is nil")
+	// ErrServiceNil is returned when the receiver Service is nil or its raw client is unset.
+	ErrServiceNil = errors.New("applications: service is nil")
+	// ErrMissingPackageName is returned when the package name is empty.
 	ErrMissingPackageName = errors.New("applications: package name is required")
-	ErrMissingParent      = errors.New("applications: parent resource name is required")
-	ErrMissingRequest     = errors.New("applications: request body is required")
-	ErrMissingConfig      = errors.New("applications: device tier config is required")
-	ErrMissingID          = errors.New("applications: device tier config id is required")
+	// ErrMissingParent is returned when the parent resource name is empty.
+	ErrMissingParent = errors.New("applications: parent resource name is required")
+	// ErrMissingRequest is returned when the request body is nil.
+	ErrMissingRequest = errors.New("applications: request body is required")
+	// ErrMissingConfig is returned when the device tier config body is nil.
+	ErrMissingConfig = errors.New("applications: device tier config is required")
+	// ErrMissingID is returned when the device tier config id is zero.
+	ErrMissingID = errors.New("applications: device tier config id is required")
 )
 
+// Service wraps the Google Play Publisher Applications resource (data safety,
+// device tier configs, and cross-track release listing).
 type Service struct {
 	raw *androidpublisher.Service
 }
 
+// New constructs an applications Service from an already-configured raw client.
 func New(raw *androidpublisher.Service) *Service { return &Service{raw: raw} }
 
-// DataSafety updates the data safety labels for the given app.
+// DataSafety wraps androidpublisher.Applications.DataSafety, updating data safety labels for the given app.
+// POST /androidpublisher/v3/applications/{packageName}/dataSafety
 func (s *Service) DataSafety(ctx context.Context, packageName string, req *androidpublisher.SafetyLabelsUpdateRequest) (*androidpublisher.SafetyLabelsUpdateResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -44,7 +54,8 @@ type CreateDeviceTierConfigOptions struct {
 	AllowUnknownDevices bool
 }
 
-// CreateDeviceTierConfig creates a new device tier config for the app.
+// CreateDeviceTierConfig wraps androidpublisher.Applications.DeviceTierConfigs.Create.
+// POST /androidpublisher/v3/applications/{packageName}/deviceTierConfigs
 func (s *Service) CreateDeviceTierConfig(ctx context.Context, packageName string, cfg *androidpublisher.DeviceTierConfig, opts CreateDeviceTierConfigOptions) (*androidpublisher.DeviceTierConfig, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -62,7 +73,8 @@ func (s *Service) CreateDeviceTierConfig(ctx context.Context, packageName string
 	return call.Do()
 }
 
-// GetDeviceTierConfig fetches a specific device tier config.
+// GetDeviceTierConfig wraps androidpublisher.Applications.DeviceTierConfigs.Get.
+// GET /androidpublisher/v3/applications/{packageName}/deviceTierConfigs/{deviceTierConfigId}
 func (s *Service) GetDeviceTierConfig(ctx context.Context, packageName string, deviceTierConfigID int64) (*androidpublisher.DeviceTierConfig, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -82,7 +94,8 @@ type ListDeviceTierConfigsOptions struct {
 	PageToken string
 }
 
-// ListDeviceTierConfigs lists device tier configs.
+// ListDeviceTierConfigs wraps androidpublisher.Applications.DeviceTierConfigs.List.
+// GET /androidpublisher/v3/applications/{packageName}/deviceTierConfigs
 func (s *Service) ListDeviceTierConfigs(ctx context.Context, packageName string, opts ListDeviceTierConfigsOptions) (*androidpublisher.ListDeviceTierConfigsResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -100,8 +113,9 @@ func (s *Service) ListDeviceTierConfigs(ctx context.Context, packageName string,
 	return call.Do()
 }
 
-// ListTrackReleases lists releases for a given track parent
-// (format: applications/{packageName}/tracks/{trackId}).
+// ListTrackReleases wraps androidpublisher.Applications.Tracks.Releases.List.
+// Parent format: applications/{packageName}/tracks/{trackId}.
+// GET /androidpublisher/v3/{parent=applications/*/tracks/*}/releases
 func (s *Service) ListTrackReleases(ctx context.Context, parent string) (*androidpublisher.ListReleaseSummariesResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

@@ -7,7 +7,9 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-// ApksAddExternallyHosted registers an externally hosted APK (enterprise only).
+// ApksAddExternallyHosted wraps androidpublisher.Edits.Apks.Addexternallyhosted
+// (enterprise-only externally hosted APK registration).
+// POST /androidpublisher/v3/applications/{packageName}/edits/{editId}/apks/externallyHosted
 func (s *Service) ApksAddExternallyHosted(ctx context.Context, packageName, editID string, req *androidpublisher.ApksAddExternallyHostedRequest) (*androidpublisher.ApksAddExternallyHostedResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -24,7 +26,8 @@ func (s *Service) ApksAddExternallyHosted(ctx context.Context, packageName, edit
 	return s.raw.Edits.Apks.Addexternallyhosted(packageName, editID, req).Context(ctx).Do()
 }
 
-// ApksList lists all uploaded APKs for the current edit.
+// ApksList wraps androidpublisher.Edits.Apks.List.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/apks
 func (s *Service) ApksList(ctx context.Context, packageName, editID string) (*androidpublisher.ApksListResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -38,7 +41,8 @@ func (s *Service) ApksList(ctx context.Context, packageName, editID string) (*an
 	return s.raw.Edits.Apks.List(packageName, editID).Context(ctx).Do()
 }
 
-// ApksUpload uploads an APK to the current edit.
+// ApksUpload wraps androidpublisher.Edits.Apks.Upload, streaming an APK into the current edit.
+// POST /upload/androidpublisher/v3/applications/{packageName}/edits/{editId}/apks
 func (s *Service) ApksUpload(ctx context.Context, packageName, editID string, media io.Reader) (*androidpublisher.Apk, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

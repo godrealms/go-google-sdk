@@ -7,8 +7,9 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-// DeobfuscationFilesUpload uploads a deobfuscation (or symbols) file for a
-// given APK version.
+// DeobfuscationFilesUpload wraps androidpublisher.Edits.Deobfuscationfiles.Upload,
+// attaching a deobfuscation (or native-symbols) archive to a given APK version.
+// POST /upload/androidpublisher/v3/applications/{packageName}/edits/{editId}/apks/{apkVersionCode}/deobfuscationFiles/{deobfuscationFileType}
 func (s *Service) DeobfuscationFilesUpload(ctx context.Context, packageName, editID string, apkVersionCode int64, deobfuscationFileType string, media io.Reader) (*androidpublisher.DeobfuscationFilesUploadResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

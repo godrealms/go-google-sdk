@@ -26,7 +26,8 @@ func (s *Service) validateExpansionArgs(packageName, editID string, apkVersionCo
 	return nil
 }
 
-// ExpansionFilesGet fetches the expansion file configuration for an APK.
+// ExpansionFilesGet wraps androidpublisher.Edits.Expansionfiles.Get.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/apks/{apkVersionCode}/expansionFiles/{expansionFileType}
 func (s *Service) ExpansionFilesGet(ctx context.Context, packageName, editID string, apkVersionCode int64, expansionFileType string) (*androidpublisher.ExpansionFile, error) {
 	if err := s.validateExpansionArgs(packageName, editID, apkVersionCode, expansionFileType); err != nil {
 		return nil, err
@@ -34,7 +35,8 @@ func (s *Service) ExpansionFilesGet(ctx context.Context, packageName, editID str
 	return s.raw.Edits.Expansionfiles.Get(packageName, editID, apkVersionCode, expansionFileType).Context(ctx).Do()
 }
 
-// ExpansionFilesPatch partially updates an expansion file configuration.
+// ExpansionFilesPatch wraps androidpublisher.Edits.Expansionfiles.Patch (partial update).
+// PATCH /androidpublisher/v3/applications/{packageName}/edits/{editId}/apks/{apkVersionCode}/expansionFiles/{expansionFileType}
 func (s *Service) ExpansionFilesPatch(ctx context.Context, packageName, editID string, apkVersionCode int64, expansionFileType string, file *androidpublisher.ExpansionFile) (*androidpublisher.ExpansionFile, error) {
 	if err := s.validateExpansionArgs(packageName, editID, apkVersionCode, expansionFileType); err != nil {
 		return nil, err
@@ -45,7 +47,8 @@ func (s *Service) ExpansionFilesPatch(ctx context.Context, packageName, editID s
 	return s.raw.Edits.Expansionfiles.Patch(packageName, editID, apkVersionCode, expansionFileType, file).Context(ctx).Do()
 }
 
-// ExpansionFilesUpdate fully updates an expansion file configuration.
+// ExpansionFilesUpdate wraps androidpublisher.Edits.Expansionfiles.Update (full replacement).
+// PUT /androidpublisher/v3/applications/{packageName}/edits/{editId}/apks/{apkVersionCode}/expansionFiles/{expansionFileType}
 func (s *Service) ExpansionFilesUpdate(ctx context.Context, packageName, editID string, apkVersionCode int64, expansionFileType string, file *androidpublisher.ExpansionFile) (*androidpublisher.ExpansionFile, error) {
 	if err := s.validateExpansionArgs(packageName, editID, apkVersionCode, expansionFileType); err != nil {
 		return nil, err
@@ -56,7 +59,8 @@ func (s *Service) ExpansionFilesUpdate(ctx context.Context, packageName, editID 
 	return s.raw.Edits.Expansionfiles.Update(packageName, editID, apkVersionCode, expansionFileType, file).Context(ctx).Do()
 }
 
-// ExpansionFilesUpload uploads an expansion file for an APK version.
+// ExpansionFilesUpload wraps androidpublisher.Edits.Expansionfiles.Upload, streaming the OBB payload.
+// POST /upload/androidpublisher/v3/applications/{packageName}/edits/{editId}/apks/{apkVersionCode}/expansionFiles/{expansionFileType}
 func (s *Service) ExpansionFilesUpload(ctx context.Context, packageName, editID string, apkVersionCode int64, expansionFileType string, media io.Reader) (*androidpublisher.ExpansionFilesUploadResponse, error) {
 	if err := s.validateExpansionArgs(packageName, editID, apkVersionCode, expansionFileType); err != nil {
 		return nil, err

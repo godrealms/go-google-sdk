@@ -7,7 +7,8 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-// ImagesDelete deletes a single image.
+// ImagesDelete wraps androidpublisher.Edits.Images.Delete.
+// DELETE /androidpublisher/v3/applications/{packageName}/edits/{editId}/listings/{language}/{imageType}/{imageId}
 func (s *Service) ImagesDelete(ctx context.Context, packageName, editID, language, imageType, imageID string) error {
 	if s == nil || s.raw == nil {
 		return ErrServiceNil
@@ -30,7 +31,8 @@ func (s *Service) ImagesDelete(ctx context.Context, packageName, editID, languag
 	return s.raw.Edits.Images.Delete(packageName, editID, language, imageType, imageID).Context(ctx).Do()
 }
 
-// ImagesDeleteAll deletes all images of a given type for a language.
+// ImagesDeleteAll wraps androidpublisher.Edits.Images.Deleteall.
+// DELETE /androidpublisher/v3/applications/{packageName}/edits/{editId}/listings/{language}/{imageType}
 func (s *Service) ImagesDeleteAll(ctx context.Context, packageName, editID, language, imageType string) (*androidpublisher.ImagesDeleteAllResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -50,7 +52,8 @@ func (s *Service) ImagesDeleteAll(ctx context.Context, packageName, editID, lang
 	return s.raw.Edits.Images.Deleteall(packageName, editID, language, imageType).Context(ctx).Do()
 }
 
-// ImagesList lists images of a given type for a language.
+// ImagesList wraps androidpublisher.Edits.Images.List.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/listings/{language}/{imageType}
 func (s *Service) ImagesList(ctx context.Context, packageName, editID, language, imageType string) (*androidpublisher.ImagesListResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -70,7 +73,8 @@ func (s *Service) ImagesList(ctx context.Context, packageName, editID, language,
 	return s.raw.Edits.Images.List(packageName, editID, language, imageType).Context(ctx).Do()
 }
 
-// ImagesUpload uploads an image of a given type for a language.
+// ImagesUpload wraps androidpublisher.Edits.Images.Upload.
+// POST /upload/androidpublisher/v3/applications/{packageName}/edits/{editId}/listings/{language}/{imageType}
 func (s *Service) ImagesUpload(ctx context.Context, packageName, editID, language, imageType string, media io.Reader) (*androidpublisher.ImagesUploadResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

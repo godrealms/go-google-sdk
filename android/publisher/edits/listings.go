@@ -6,7 +6,8 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-// ListingsDelete deletes the listing for a specific language.
+// ListingsDelete wraps androidpublisher.Edits.Listings.Delete.
+// DELETE /androidpublisher/v3/applications/{packageName}/edits/{editId}/listings/{language}
 func (s *Service) ListingsDelete(ctx context.Context, packageName, editID, language string) error {
 	if s == nil || s.raw == nil {
 		return ErrServiceNil
@@ -23,7 +24,8 @@ func (s *Service) ListingsDelete(ctx context.Context, packageName, editID, langu
 	return s.raw.Edits.Listings.Delete(packageName, editID, language).Context(ctx).Do()
 }
 
-// ListingsDeleteAll deletes all listings for the current edit.
+// ListingsDeleteAll wraps androidpublisher.Edits.Listings.Deleteall.
+// DELETE /androidpublisher/v3/applications/{packageName}/edits/{editId}/listings
 func (s *Service) ListingsDeleteAll(ctx context.Context, packageName, editID string) error {
 	if s == nil || s.raw == nil {
 		return ErrServiceNil
@@ -37,7 +39,8 @@ func (s *Service) ListingsDeleteAll(ctx context.Context, packageName, editID str
 	return s.raw.Edits.Listings.Deleteall(packageName, editID).Context(ctx).Do()
 }
 
-// ListingsGet fetches the listing for a specific language.
+// ListingsGet wraps androidpublisher.Edits.Listings.Get.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/listings/{language}
 func (s *Service) ListingsGet(ctx context.Context, packageName, editID, language string) (*androidpublisher.Listing, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -54,7 +57,8 @@ func (s *Service) ListingsGet(ctx context.Context, packageName, editID, language
 	return s.raw.Edits.Listings.Get(packageName, editID, language).Context(ctx).Do()
 }
 
-// ListingsList lists all localized listings for the current edit.
+// ListingsList wraps androidpublisher.Edits.Listings.List.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/listings
 func (s *Service) ListingsList(ctx context.Context, packageName, editID string) (*androidpublisher.ListingsListResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -68,7 +72,8 @@ func (s *Service) ListingsList(ctx context.Context, packageName, editID string) 
 	return s.raw.Edits.Listings.List(packageName, editID).Context(ctx).Do()
 }
 
-// ListingsPatch partially updates a listing for a specific language.
+// ListingsPatch wraps androidpublisher.Edits.Listings.Patch (partial update).
+// PATCH /androidpublisher/v3/applications/{packageName}/edits/{editId}/listings/{language}
 func (s *Service) ListingsPatch(ctx context.Context, packageName, editID, language string, listing *androidpublisher.Listing) (*androidpublisher.Listing, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -88,7 +93,8 @@ func (s *Service) ListingsPatch(ctx context.Context, packageName, editID, langua
 	return s.raw.Edits.Listings.Patch(packageName, editID, language, listing).Context(ctx).Do()
 }
 
-// ListingsUpdate fully updates a listing for a specific language.
+// ListingsUpdate wraps androidpublisher.Edits.Listings.Update (full replacement).
+// PUT /androidpublisher/v3/applications/{packageName}/edits/{editId}/listings/{language}
 func (s *Service) ListingsUpdate(ctx context.Context, packageName, editID, language string, listing *androidpublisher.Listing) (*androidpublisher.Listing, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

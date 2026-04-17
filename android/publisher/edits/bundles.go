@@ -7,7 +7,8 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-// BundlesList lists all uploaded app bundles for the current edit.
+// BundlesList wraps androidpublisher.Edits.Bundles.List.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/bundles
 func (s *Service) BundlesList(ctx context.Context, packageName, editID string) (*androidpublisher.BundlesListResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -27,7 +28,8 @@ type BundlesUploadOptions struct {
 	DeviceTierConfigID           string
 }
 
-// BundlesUpload uploads an app bundle to the current edit.
+// BundlesUpload wraps androidpublisher.Edits.Bundles.Upload, streaming an AAB into the current edit.
+// POST /upload/androidpublisher/v3/applications/{packageName}/edits/{editId}/bundles
 func (s *Service) BundlesUpload(ctx context.Context, packageName, editID string, media io.Reader, opts BundlesUploadOptions) (*androidpublisher.Bundle, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

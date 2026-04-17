@@ -10,16 +10,22 @@ import (
 )
 
 var (
-	ErrServiceNil         = errors.New("reviews: service is nil")
+	// ErrServiceNil is returned when the receiver Service is nil or its raw client is unset.
+	ErrServiceNil = errors.New("reviews: service is nil")
+	// ErrMissingPackageName is returned when the packageName argument is empty.
 	ErrMissingPackageName = errors.New("reviews: packageName is required")
-	ErrMissingReviewID    = errors.New("reviews: reviewID is required")
-	ErrMissingReply       = errors.New("reviews: reply text is required")
+	// ErrMissingReviewID is returned when the reviewID argument is empty.
+	ErrMissingReviewID = errors.New("reviews: reviewID is required")
+	// ErrMissingReply is returned when the reply text is empty.
+	ErrMissingReply = errors.New("reviews: reply text is required")
 )
 
+// Service wraps the Google Play Publisher Reviews resource.
 type Service struct {
 	raw *androidpublisher.Service
 }
 
+// New constructs a reviews Service from an already-configured raw client.
 func New(raw *androidpublisher.Service) *Service { return &Service{raw: raw} }
 
 // ListOptions holds optional query parameters for List.
@@ -30,6 +36,8 @@ type ListOptions struct {
 	TranslationLanguage string
 }
 
+// Get wraps androidpublisher.Reviews.Get.
+// GET /androidpublisher/v3/applications/{packageName}/reviews/{reviewId}
 func (s *Service) Get(ctx context.Context, packageName, reviewID, translationLanguage string) (*androidpublisher.Review, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -47,6 +55,8 @@ func (s *Service) Get(ctx context.Context, packageName, reviewID, translationLan
 	return call.Do()
 }
 
+// List wraps androidpublisher.Reviews.List.
+// GET /androidpublisher/v3/applications/{packageName}/reviews
 func (s *Service) List(ctx context.Context, packageName string, opts ListOptions) (*androidpublisher.ReviewsListResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -70,6 +80,8 @@ func (s *Service) List(ctx context.Context, packageName string, opts ListOptions
 	return call.Do()
 }
 
+// Reply wraps androidpublisher.Reviews.Reply, posting a developer reply to a user review.
+// POST /androidpublisher/v3/applications/{packageName}/reviews/{reviewId}:reply
 func (s *Service) Reply(ctx context.Context, packageName, reviewID, replyText string) (*androidpublisher.ReviewsReplyResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

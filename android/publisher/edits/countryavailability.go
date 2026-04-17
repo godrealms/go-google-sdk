@@ -6,7 +6,8 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-// CountryAvailabilityGet fetches country availability for a track.
+// CountryAvailabilityGet wraps androidpublisher.Edits.Countryavailability.Get.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/countryAvailability/{track}
 func (s *Service) CountryAvailabilityGet(ctx context.Context, packageName, editID, track string) (*androidpublisher.TrackCountryAvailability, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

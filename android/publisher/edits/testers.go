@@ -6,7 +6,8 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-// TestersGet fetches testers configuration for a track.
+// TestersGet wraps androidpublisher.Edits.Testers.Get.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/testers/{track}
 func (s *Service) TestersGet(ctx context.Context, packageName, editID, track string) (*androidpublisher.Testers, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -23,7 +24,8 @@ func (s *Service) TestersGet(ctx context.Context, packageName, editID, track str
 	return s.raw.Edits.Testers.Get(packageName, editID, track).Context(ctx).Do()
 }
 
-// TestersPatch partially updates testers for a track.
+// TestersPatch wraps androidpublisher.Edits.Testers.Patch (partial update).
+// PATCH /androidpublisher/v3/applications/{packageName}/edits/{editId}/testers/{track}
 func (s *Service) TestersPatch(ctx context.Context, packageName, editID, track string, testers *androidpublisher.Testers) (*androidpublisher.Testers, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -43,7 +45,8 @@ func (s *Service) TestersPatch(ctx context.Context, packageName, editID, track s
 	return s.raw.Edits.Testers.Patch(packageName, editID, track, testers).Context(ctx).Do()
 }
 
-// TestersUpdate fully updates testers for a track.
+// TestersUpdate wraps androidpublisher.Edits.Testers.Update (full replacement).
+// PUT /androidpublisher/v3/applications/{packageName}/edits/{editId}/testers/{track}
 func (s *Service) TestersUpdate(ctx context.Context, packageName, editID, track string, testers *androidpublisher.Testers) (*androidpublisher.Testers, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

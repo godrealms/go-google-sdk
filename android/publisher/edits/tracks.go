@@ -6,7 +6,8 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-// TracksCreate creates a new track.
+// TracksCreate wraps androidpublisher.Edits.Tracks.Create.
+// POST /androidpublisher/v3/applications/{packageName}/edits/{editId}/tracks
 func (s *Service) TracksCreate(ctx context.Context, packageName, editID string, cfg *androidpublisher.TrackConfig) (*androidpublisher.Track, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -23,7 +24,8 @@ func (s *Service) TracksCreate(ctx context.Context, packageName, editID string, 
 	return s.raw.Edits.Tracks.Create(packageName, editID, cfg).Context(ctx).Do()
 }
 
-// TracksGet fetches a single track.
+// TracksGet wraps androidpublisher.Edits.Tracks.Get.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/tracks/{track}
 func (s *Service) TracksGet(ctx context.Context, packageName, editID, track string) (*androidpublisher.Track, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -40,7 +42,8 @@ func (s *Service) TracksGet(ctx context.Context, packageName, editID, track stri
 	return s.raw.Edits.Tracks.Get(packageName, editID, track).Context(ctx).Do()
 }
 
-// TracksList lists all tracks for the current edit.
+// TracksList wraps androidpublisher.Edits.Tracks.List.
+// GET /androidpublisher/v3/applications/{packageName}/edits/{editId}/tracks
 func (s *Service) TracksList(ctx context.Context, packageName, editID string) (*androidpublisher.TracksListResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -54,7 +57,8 @@ func (s *Service) TracksList(ctx context.Context, packageName, editID string) (*
 	return s.raw.Edits.Tracks.List(packageName, editID).Context(ctx).Do()
 }
 
-// TracksPatch partially updates a track.
+// TracksPatch wraps androidpublisher.Edits.Tracks.Patch (partial update).
+// PATCH /androidpublisher/v3/applications/{packageName}/edits/{editId}/tracks/{track}
 func (s *Service) TracksPatch(ctx context.Context, packageName, editID, track string, body *androidpublisher.Track) (*androidpublisher.Track, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -74,7 +78,8 @@ func (s *Service) TracksPatch(ctx context.Context, packageName, editID, track st
 	return s.raw.Edits.Tracks.Patch(packageName, editID, track, body).Context(ctx).Do()
 }
 
-// TracksUpdate fully updates a track.
+// TracksUpdate wraps androidpublisher.Edits.Tracks.Update (full replacement).
+// PUT /androidpublisher/v3/applications/{packageName}/edits/{editId}/tracks/{track}
 func (s *Service) TracksUpdate(ctx context.Context, packageName, editID, track string, body *androidpublisher.Track) (*androidpublisher.Track, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil

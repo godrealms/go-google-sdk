@@ -12,16 +12,23 @@ import (
 )
 
 var (
-	ErrServiceNil     = errors.New("users: service is nil")
-	ErrMissingParent  = errors.New("users: parent resource name is required")
-	ErrMissingName    = errors.New("users: user resource name is required")
-	ErrMissingUser    = errors.New("users: user body is required")
+	// ErrServiceNil is returned when the receiver Service is nil or its raw client is unset.
+	ErrServiceNil = errors.New("users: service is nil")
+	// ErrMissingParent is returned when the parent resource name is empty.
+	ErrMissingParent = errors.New("users: parent resource name is required")
+	// ErrMissingName is returned when the user resource name is empty.
+	ErrMissingName = errors.New("users: user resource name is required")
+	// ErrMissingUser is returned when the user body is nil.
+	ErrMissingUser = errors.New("users: user body is required")
 )
 
+// Service wraps the Google Play Publisher Users resource (Developer Console
+// user account management).
 type Service struct {
 	raw *androidpublisher.Service
 }
 
+// New constructs a users Service from an already-configured raw client.
 func New(raw *androidpublisher.Service) *Service { return &Service{raw: raw} }
 
 // ListOptions holds optional paginated-list query parameters.
@@ -30,6 +37,8 @@ type ListOptions struct {
 	PageToken string
 }
 
+// Create wraps androidpublisher.Users.Create, granting a new user in the Play console.
+// POST /androidpublisher/v3/{parent=developers/*}/users
 func (s *Service) Create(ctx context.Context, parent string, user *androidpublisher.User) (*androidpublisher.User, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -43,6 +52,8 @@ func (s *Service) Create(ctx context.Context, parent string, user *androidpublis
 	return s.raw.Users.Create(parent, user).Context(ctx).Do()
 }
 
+// List wraps androidpublisher.Users.List.
+// GET /androidpublisher/v3/{parent=developers/*}/users
 func (s *Service) List(ctx context.Context, parent string, opts ListOptions) (*androidpublisher.ListUsersResponse, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -60,6 +71,8 @@ func (s *Service) List(ctx context.Context, parent string, opts ListOptions) (*a
 	return call.Do()
 }
 
+// Patch wraps androidpublisher.Users.Patch, partially updating a user's roles/access.
+// PATCH /androidpublisher/v3/{name=developers/*/users/*}
 func (s *Service) Patch(ctx context.Context, name, updateMask string, user *androidpublisher.User) (*androidpublisher.User, error) {
 	if s == nil || s.raw == nil {
 		return nil, ErrServiceNil
@@ -77,6 +90,8 @@ func (s *Service) Patch(ctx context.Context, name, updateMask string, user *andr
 	return call.Do()
 }
 
+// Delete wraps androidpublisher.Users.Delete, revoking console access for the user.
+// DELETE /androidpublisher/v3/{name=developers/*/users/*}
 func (s *Service) Delete(ctx context.Context, name string) error {
 	if s == nil || s.raw == nil {
 		return ErrServiceNil
