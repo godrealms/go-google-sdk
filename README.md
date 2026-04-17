@@ -217,6 +217,16 @@ handlePurchaseNotification(notification.OneTimeProductNotification)
 | `client.VoidedPurchases` | `List` |
 | `client.OneTimeProducts` | `Get`, `List`, `Patch`, `Delete`, `BatchGet`, `BatchUpdate`, `BatchDelete`, `PurchaseOptions.*`, `PurchaseOptions.Offers.*` |
 | `client.MonetizationSubscriptions` | `Get`, `List`, `Create`, `Patch`, `Delete`, `Archive`, `BatchGet`, `BatchUpdate`, `ConvertRegionPrices`, `BasePlans.*`, `BasePlans.Offers.*` |
+| `client.Reviews` | `Get`, `List`, `Reply` |
+| `client.Users` | `Create`, `List`, `Patch`, `Delete` |
+| `client.Grants` | `Create`, `Patch`, `Delete` |
+| `client.ExternalTransactions` | `Create`, `Get`, `Refund` |
+| `client.Applications` | `DataSafety`, `CreateDeviceTierConfig`, `GetDeviceTierConfig`, `ListDeviceTierConfigs`, `ListTrackReleases` |
+| `client.AppRecovery` | `AddTargeting`, `Cancel`, `Create`, `Deploy`, `List` |
+| `client.GeneratedAPKs` | `Download`, `List` |
+| `client.SystemAPKs` | `Create`, `Get`, `List`, `Download` |
+| `client.InternalAppSharing` | `UploadAPK`, `UploadBundle` |
+| `client.Edits` | `Commit`, `Delete`, `Get`, `Insert`, `Validate`, `Apks.*`, `Bundles.*`, `CountryAvailability.*`, `DeobfuscationFiles.*`, `Details.*`, `ExpansionFiles.*`, `Images.*`, `Listings.*`, `Testers.*`, `Tracks.*` |
 | `client`（顶层） | `Verify`（统一路由） |
 
 ### Google Pay Client
@@ -329,6 +339,20 @@ processPaymentToken(result)
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
 ## 更新日志
+
+### v0.0.6（2026-04-17）
+
+#### 变更要点
+
+- ✨ 新增 `reviews` 子包：用户评论 `Get` / `List` / `Reply`
+- ✨ 新增 `users` 与 `grants` 子包：Play Console 用户与权限管理
+- ✨ 新增 `externaltransactions` 子包：外部交易 `Create` / `Get` / `Refund`
+- ✨ 新增 `applications` 子包：`DataSafety`、`DeviceTierConfigs` CRUD、跨轨道 `ListTrackReleases`
+- ✨ 新增 `apprecovery` 子包：`AddTargeting` / `Cancel` / `Create` / `Deploy` / `List`
+- ✨ 新增 `generatedapks`、`systemapks`、`internalappsharing` 三个分发子包（Download / Upload / CRUD）
+- ✨ 新增 `edits` 子包：完整覆盖 `edits` 生命周期（`Commit` / `Delete` / `Get` / `Insert` / `Validate`）以及 `apks`、`bundles`、`countryAvailability`、`deobfuscationFiles`、`details`、`expansionFiles`、`images`、`listings`、`testers`、`tracks` 全部嵌套资源
+- ➕ 补齐 `subscriptions.CancelV2` 与 `subscriptions.DeferV2`
+- 🔌 顶层 `Client` 注入全部新子服务字段
 
 ### v0.0.5（2026-04-17）
 

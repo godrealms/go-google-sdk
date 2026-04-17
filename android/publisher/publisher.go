@@ -13,12 +13,22 @@ import (
 	"google.golang.org/api/androidpublisher/v3"
 	"google.golang.org/api/option"
 
+	"github.com/godrealms/go-google-sdk/android/publisher/applications"
+	"github.com/godrealms/go-google-sdk/android/publisher/apprecovery"
+	"github.com/godrealms/go-google-sdk/android/publisher/edits"
+	"github.com/godrealms/go-google-sdk/android/publisher/externaltransactions"
+	"github.com/godrealms/go-google-sdk/android/publisher/generatedapks"
+	"github.com/godrealms/go-google-sdk/android/publisher/grants"
 	"github.com/godrealms/go-google-sdk/android/publisher/inappproducts"
-	monetizationsubs "github.com/godrealms/go-google-sdk/android/publisher/monetization/subscriptions"
+	"github.com/godrealms/go-google-sdk/android/publisher/internalappsharing"
 	"github.com/godrealms/go-google-sdk/android/publisher/monetization/onetimeproducts"
+	monetizationsubs "github.com/godrealms/go-google-sdk/android/publisher/monetization/subscriptions"
 	"github.com/godrealms/go-google-sdk/android/publisher/orders"
 	"github.com/godrealms/go-google-sdk/android/publisher/purchases"
+	"github.com/godrealms/go-google-sdk/android/publisher/reviews"
 	"github.com/godrealms/go-google-sdk/android/publisher/subscriptions"
+	"github.com/godrealms/go-google-sdk/android/publisher/systemapks"
+	"github.com/godrealms/go-google-sdk/android/publisher/users"
 	"github.com/godrealms/go-google-sdk/android/publisher/voidedpurchases"
 )
 
@@ -36,7 +46,26 @@ type Client struct {
 	// surface (Subscription CRUD + basePlans + offers + convertRegionPrices).
 	// Distinct from Subscriptions, which handles purchased-subscription lookups.
 	MonetizationSubscriptions *monetizationsubs.Service
-	raw                       *androidpublisher.Service
+
+	// Reviews exposes user-review list/reply endpoints.
+	Reviews *reviews.Service
+	// Users and Grants manage Play Console user access and per-app grants.
+	Users  *users.Service
+	Grants *grants.Service
+	// ExternalTransactions wraps the external transactions billing surface.
+	ExternalTransactions *externaltransactions.Service
+	// Applications covers data safety, device tier configs and track releases.
+	Applications *applications.Service
+	// AppRecovery manages app recovery actions.
+	AppRecovery *apprecovery.Service
+	// GeneratedAPKs, SystemAPKs and InternalAppSharing cover build distribution.
+	GeneratedAPKs      *generatedapks.Service
+	SystemAPKs         *systemapks.Service
+	InternalAppSharing *internalappsharing.Service
+	// Edits wraps the entire edits lifecycle (apks, bundles, listings, tracks, etc).
+	Edits *edits.Service
+
+	raw *androidpublisher.Service
 }
 
 func newClient(raw *androidpublisher.Service) *Client {
@@ -48,6 +77,16 @@ func newClient(raw *androidpublisher.Service) *Client {
 		VoidedPurchases:           voidedpurchases.New(raw),
 		OneTimeProducts:           onetimeproducts.New(raw),
 		MonetizationSubscriptions: monetizationsubs.New(raw),
+		Reviews:                   reviews.New(raw),
+		Users:                     users.New(raw),
+		Grants:                    grants.New(raw),
+		ExternalTransactions:      externaltransactions.New(raw),
+		Applications:              applications.New(raw),
+		AppRecovery:               apprecovery.New(raw),
+		GeneratedAPKs:             generatedapks.New(raw),
+		SystemAPKs:                systemapks.New(raw),
+		InternalAppSharing:        internalappsharing.New(raw),
+		Edits:                     edits.New(raw),
 		raw:                       raw,
 	}
 }
