@@ -115,6 +115,9 @@ func TestVerifyReturnsOrderForSubscriptionOrderID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected success: %v", err)
 	}
+	if result.Type != publisher.VerifyTypeSubscription {
+		t.Fatalf("expected subscription type, got %s", result.Type)
+	}
 	order, ok := result.Raw.(*androidpublisher.Order)
 	if !ok {
 		t.Fatalf("expected *Order raw, got %T", result.Raw)
