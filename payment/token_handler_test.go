@@ -188,6 +188,35 @@ func TestTokenHandlerDecryptTokenECv2RejectsMissingIntermediate(t *testing.T) {
 	}
 }
 
+func TestTokenHandlerDecryptTokenRejectsMissingMessageExpiration(t *testing.T) {
+	root := newECKeyPair(t)
+	leaf := newECKeyPair(t)
+	tokenStr := buildECv1Token(t, leaf, root, "m", map[string]any{"paymentMethod": "CARD"})
+	h := newTestHandler(t, "m", leaf, root)
+
+	_, err := h.DecryptToken(context.Background(), tokenStr)
+	if err == nil || !strings.Contains(err.Error(), "messageExpiration") {
+		t.Fatalf("expected missing messageExpiration error, got %v", err)
+	}
+}
+
+func TestTokenHandlerDecryptTokenECv2RejectsMissingIntermediateExpiration(t *testing.T) {
+	root := newECKeyPair(t)
+	intermediate := newECKeyPair(t)
+	leaf := newECKeyPair(t)
+
+	tokenStr := buildECv2Token(t, leaf, intermediate, root, "m", map[string]any{
+		"paymentMethod":     "CARD",
+		"messageExpiration": msExp(time.Now().Add(time.Hour)),
+	}, "")
+	h := newTestHandler(t, "m", leaf, root)
+
+	_, err := h.DecryptToken(context.Background(), tokenStr)
+	if err == nil || !strings.Contains(err.Error(), "keyExpiration") {
+		t.Fatalf("expected missing intermediate keyExpiration error, got %v", err)
+	}
+}
+
 // --- Health / ValidateSignature ---------------------------------------------
 
 func TestTokenHandlerValidateSignature(t *testing.T) {
@@ -364,7 +393,7 @@ func TestCollectRootKeysRefreshesWhenEmpty(t *testing.T) {
 	withStubbedDefaultTransport(t, roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 		return responseWithBody(t, http.StatusOK, rootKeysJSONResponse(t, "r", root)), nil
 	}), func() {
-		keys, err := h.collectRootKeys(context.Background())
+		keys, err := h.collectRootKeys(context.Background(), EcV1)
 		if err != nil {
 			t.Fatalf("expected refresh success: %v", err)
 		}

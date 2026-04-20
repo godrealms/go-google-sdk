@@ -21,10 +21,14 @@ import (
 var newRequestWithContext = http.NewRequestWithContext
 
 // rootKey is an internal cache entry that remembers the per-key expiration
-// delivered by Google. ExpiresAt may be the zero Time when Google omitted it.
+// and protocol version delivered by Google. ExpiresAt may be the zero Time
+// when Google omitted it; ProtocolVersion may be empty when the fixture
+// didn't declare one (in which case the key is considered usable for any
+// supported protocol).
 type rootKey struct {
-	PublicKey *ecdsa.PublicKey
-	ExpiresAt time.Time
+	PublicKey       *ecdsa.PublicKey
+	ExpiresAt       time.Time
+	ProtocolVersion TokenProtocol
 }
 
 // KeyManager loads the merchant's ECDSA private key and the rotating set of
@@ -178,7 +182,10 @@ func (km *KeyManager) loadRootKeys(ctx context.Context) error {
 			continue
 		}
 
-		entry := rootKey{PublicKey: publicKey}
+		entry := rootKey{
+			PublicKey:       publicKey,
+			ProtocolVersion: TokenProtocol(k.ProtocolVersion),
+		}
 		if k.KeyExpiration != "" {
 			expiry, err := parseMsTimestamp(k.KeyExpiration)
 			if err != nil {
@@ -249,15 +256,33 @@ func (km *KeyManager) GetRootKey(keyID string) (*ecdsa.PublicKey, error) {
 }
 
 // AllRootKeys returns a snapshot of all currently-cached, non-expired Google
-// root public keys. Used by the token handler when a token does not include a
-// keyId (ECv2) and we must try each key.
+// root public keys regardless of declared protocol version. Used by the token
+// handler when a token does not include a keyId and we must try each key.
 func (km *KeyManager) AllRootKeys() []*ecdsa.PublicKey {
+	return km.rootKeysFor("")
+}
+
+// RootKeysForProtocol returns a snapshot of non-expired Google root public
+// keys whose declared protocolVersion matches protocol. Keys with no declared
+// protocolVersion are included on the assumption they predate the
+// protocolVersion field and are therefore usable for any supported protocol.
+func (km *KeyManager) RootKeysForProtocol(protocol TokenProtocol) []*ecdsa.PublicKey {
+	if protocol == "" {
+		return km.rootKeysFor("")
+	}
+	return km.rootKeysFor(protocol)
+}
+
+func (km *KeyManager) rootKeysFor(protocol TokenProtocol) []*ecdsa.PublicKey {
 	km.mu.RLock()
 	defer km.mu.RUnlock()
 	out := make([]*ecdsa.PublicKey, 0, len(km.rootKeys))
 	now := time.Now()
 	for _, entry := range km.rootKeys {
 		if !entry.ExpiresAt.IsZero() && !now.Before(entry.ExpiresAt) {
+			continue
+		}
+		if protocol != "" && entry.ProtocolVersion != "" && entry.ProtocolVersion != protocol {
 			continue
 		}
 		out = append(out, entry.PublicKey)

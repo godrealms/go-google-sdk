@@ -1,5 +1,39 @@
 # Changelog / 变更日志
 
+## v0.0.7 — 2026-04-17
+
+### Breaking Changes
+
+- `payment` module rewritten to match Google Pay's Payment Method Token specification. Tokens produced against the old SDK will not decrypt.
+  - `EncryptedToken` wire format: `signature` is a top-level field; `signedMessage` is a JSON-encoded string; new `IntermediateSigningKey` block for the ECv2 signing chain.
+  - Signature data construction uses `toLengthValue` (4-byte little-endian length prefix) over `"Google" || merchant:<id> || <protocol> || signedMessage`.
+  - Key derivation switched to HKDF-SHA256 (`golang.org/x/crypto/hkdf`, `info="Google"`, 64-byte output).
+  - Symmetric decryption switched from CBC+PKCS7 to AES-256-CTR with a zero IV.
+  - Root keys JSON parser honours `keyExpiration` (ms since epoch) and drops expired keys.
+  - `CardDetails.ExpirationMonth` / `ExpirationYear` changed from `string` to `int`.
+
+### New Features
+
+- `Client.DecryptToken` — preferred alias for `DecryptPaymentToken`
+- `payment.Sandbox` / `payment.Production` — short environment aliases
+- `KeyManager.AllRootKeys` / `KeyManager.RootKeysForProtocol` — protocol-aware root-key snapshots for ECv2 verification
+- Client cache now re-validates `ExpiresAt` on hits, so a long `CacheTTL` can no longer return a stale token
+- `DecryptToken` requires a non-empty `messageExpiration`; `IntermediateSignedKey.keyExpiration` must be present
+
+## v0.0.6 — 2026-04-17
+
+### New Features
+
+- New `reviews` sub-package — user reviews (`Get` / `List` / `Reply`)
+- New `access/users` and `access/grants` sub-packages — Play Console user and permission management
+- New `externaltransactions` sub-package — external transactions (`Create` / `Get` / `Refund`)
+- New `applications` sub-package — `DataSafety`, `DeviceTierConfigs` CRUD, cross-track `ListTrackReleases`
+- New `apprecovery` sub-package — `AddTargeting` / `Cancel` / `Create` / `Deploy` / `List`
+- New `generatedapks`, `systemapks`, `internalappsharing` distribution sub-packages (Download / Upload / CRUD)
+- New `edits` sub-package — full `edits` lifecycle (`Commit` / `Delete` / `Get` / `Insert` / `Validate`) plus every nested resource (`apks`, `bundles`, `countryAvailability`, `deobfuscationFiles`, `details`, `expansionFiles`, `images`, `listings`, `testers`, `tracks`)
+- `subscriptions.CancelV2` and `subscriptions.DeferV2`
+- Top-level `Client` wired with the new sub-service fields
+
 ## v0.0.5 — 2026-04-17
 
 ### New Features

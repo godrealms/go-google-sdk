@@ -30,15 +30,20 @@ func main() {
 		log.Fatalf("Client health check failed: %v", err)
 	}
 
-	// 解密支付Token
+	// 解密支付Token。
+	//
+	// Wire format matches Google Pay's Payment Method Token spec:
+	//   - `signature` is base64-encoded at the top level
+	//   - `signedMessage` is a JSON-encoded STRING (not a nested object)
+	//     whose decoded form holds {encryptedMessage, ephemeralPublicKey, tag}
+	//
+	// For ECv2 tokens the same object carries an additional
+	// `intermediateSigningKey` with `signedKey` (also a JSON string) and
+	// `signatures` array.
 	encryptedTokenStr := `{
 		"protocolVersion": "ECv1",
-		"signature": "...",
-		"signedMessage": {
-			"encryptedMessage": "...",
-			"ephemeralPublicKey": "...",
-			"tag": "..."
-		}
+		"signature": "MEUCIQ...base64...",
+		"signedMessage": "{\"encryptedMessage\":\"...\",\"ephemeralPublicKey\":\"...\",\"tag\":\"...\"}"
 	}`
 
 	paymentToken, err := client.DecryptPaymentToken(ctx, encryptedTokenStr)

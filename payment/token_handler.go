@@ -96,16 +96,14 @@ func (th *TokenHandler) DecryptToken(ctx context.Context, encryptedTokenStr stri
 		return nil, fmt.Errorf("failed to unmarshal payment token: %w", err)
 	}
 
-	if paymentToken.MessageExpiration != "" {
-		expiresAt, err := parseMsTimestamp(paymentToken.MessageExpiration)
-		if err != nil {
-			return nil, fmt.Errorf("invalid message expiration format: %w", err)
-		}
-		paymentToken.ExpiresAt = expiresAt
+	if paymentToken.MessageExpiration == "" {
+		return nil, errors.New("payment token is missing messageExpiration")
 	}
-	if paymentToken.ExpiresAt.IsZero() {
-		paymentToken.ExpiresAt = time.Now().Add(1 * time.Hour)
+	expiresAt, err := parseMsTimestamp(paymentToken.MessageExpiration)
+	if err != nil {
+		return nil, fmt.Errorf("invalid message expiration format: %w", err)
 	}
+	paymentToken.ExpiresAt = expiresAt
 	if time.Now().After(paymentToken.ExpiresAt) {
 		return nil, errors.New("token has expired")
 	}
@@ -137,7 +135,7 @@ func (th *TokenHandler) verifyECv1(ctx context.Context, token *EncryptedToken) e
 
 	data := signatureDataECv1(th.recipientID(), token.SignedMessage)
 
-	rootKeys, err := th.collectRootKeys(ctx)
+	rootKeys, err := th.collectRootKeys(ctx, EcV1)
 	if err != nil {
 		return err
 	}
@@ -155,7 +153,7 @@ func (th *TokenHandler) verifyECv2(ctx context.Context, token *EncryptedToken) e
 	// Step 1: verify the intermediate signed-key block against Google root keys.
 	intermediateData := signatureDataECv2Intermediate(token.IntermediateSigningKey.SignedKey)
 
-	rootKeys, err := th.collectRootKeys(ctx)
+	rootKeys, err := th.collectRootKeys(ctx, EcV2)
 	if err != nil {
 		return err
 	}
@@ -180,14 +178,15 @@ func (th *TokenHandler) verifyECv2(ctx context.Context, token *EncryptedToken) e
 	if err := json.Unmarshal([]byte(token.IntermediateSigningKey.SignedKey), &signedKey); err != nil {
 		return fmt.Errorf("parse intermediate signed key: %w", err)
 	}
-	if signedKey.KeyExpiration != "" {
-		expiry, err := parseMsTimestamp(signedKey.KeyExpiration)
-		if err != nil {
-			return fmt.Errorf("invalid intermediate key expiration: %w", err)
-		}
-		if !time.Now().Before(expiry) {
-			return errors.New("intermediate signing key has expired")
-		}
+	if signedKey.KeyExpiration == "" {
+		return errors.New("intermediate signing key is missing keyExpiration")
+	}
+	expiry, err := parseMsTimestamp(signedKey.KeyExpiration)
+	if err != nil {
+		return fmt.Errorf("invalid intermediate key expiration: %w", err)
+	}
+	if !time.Now().Before(expiry) {
+		return errors.New("intermediate signing key has expired")
 	}
 
 	intermediatePub, err := parseECDSAPublicKeyBase64(signedKey.KeyValue)
@@ -279,17 +278,17 @@ func (th *TokenHandler) performECDH(ephemeralPublicKey *ecdsa.PublicKey) ([]byte
 	return out, nil
 }
 
-// collectRootKeys returns the current Google root public keys, refreshing the
-// cache once if empty.
-func (th *TokenHandler) collectRootKeys(ctx context.Context) ([]*ecdsa.PublicKey, error) {
-	keys := th.keyManager.AllRootKeys()
+// collectRootKeys returns the Google root public keys usable for protocol,
+// refreshing the cache once if empty.
+func (th *TokenHandler) collectRootKeys(ctx context.Context, protocol TokenProtocol) ([]*ecdsa.PublicKey, error) {
+	keys := th.keyManager.RootKeysForProtocol(protocol)
 	if len(keys) > 0 {
 		return keys, nil
 	}
 	if err := th.keyManager.RefreshRootKeys(ctx); err != nil {
 		return nil, fmt.Errorf("refresh root keys: %w", err)
 	}
-	keys = th.keyManager.AllRootKeys()
+	keys = th.keyManager.RootKeysForProtocol(protocol)
 	if len(keys) == 0 {
 		return nil, errors.New("no Google root keys available")
 	}
