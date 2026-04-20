@@ -576,6 +576,42 @@ func TestKeyManagerRefreshRootKeysSkipsNilContext(t *testing.T) {
 	})
 }
 
+func TestKeyManagerRootKeysForProtocolFilters(t *testing.T) {
+	v1 := newECKeyPair(t)
+	v2 := newECKeyPair(t)
+	legacy := newECKeyPair(t)
+
+	km := &KeyManager{
+		rootKeys: map[string]rootKey{
+			"v1":     {PublicKey: &v1.PublicKey, ProtocolVersion: EcV1},
+			"v2":     {PublicKey: &v2.PublicKey, ProtocolVersion: EcV2},
+			"legacy": {PublicKey: &legacy.PublicKey},
+		},
+	}
+
+	// RootKeysForProtocol(ECv1) returns v1 + legacy (no declared version).
+	got := km.RootKeysForProtocol(EcV1)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 keys usable for ECv1, got %d", len(got))
+	}
+
+	// RootKeysForProtocol(ECv2) returns v2 + legacy.
+	got = km.RootKeysForProtocol(EcV2)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 keys usable for ECv2, got %d", len(got))
+	}
+
+	// AllRootKeys is unconditional.
+	if got := km.AllRootKeys(); len(got) != 3 {
+		t.Fatalf("expected all 3 keys, got %d", len(got))
+	}
+
+	// RootKeysForProtocol("") short-circuits to AllRootKeys.
+	if got := km.RootKeysForProtocol(""); len(got) != 3 {
+		t.Fatalf("expected empty protocol to return all keys, got %d", len(got))
+	}
+}
+
 func TestKeyManagerLoadRootKeysSkipsRecentCache(t *testing.T) {
 	cached := newECKeyPair(t)
 	km := &KeyManager{

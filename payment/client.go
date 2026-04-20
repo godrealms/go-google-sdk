@@ -103,11 +103,16 @@ func (c *Client) DecryptPaymentToken(ctx context.Context, encryptedToken string)
 
 	cacheKey := c.tokenCacheKey(encryptedToken)
 
-	// 检查缓存
+	// 检查缓存。缓存 TTL (CacheTTL) 可能长于 Token 自身 messageExpiration，
+	// 所以命中后必须再次校验 ExpiresAt，避免把已过期的 Token 返回给调用方。
 	if cached := c.cache.Get(cacheKey); cached != nil {
 		if token, ok := cached.(*PaymentToken); ok {
-			c.logger.Debug("Payment token found in cache")
-			return token, nil
+			if token.IsExpired() {
+				c.cache.Delete(cacheKey)
+			} else {
+				c.logger.Debug("Payment token found in cache")
+				return token, nil
+			}
 		}
 	}
 
@@ -125,14 +130,15 @@ func (c *Client) DecryptPaymentToken(ctx context.Context, encryptedToken string)
 	return token, nil
 }
 
-// ValidatePaymentToken 验证支付Token
+// ValidatePaymentToken 验证支付Token。ExpiresAt 为零值时跳过时间校验（此时
+// 由 tokenHandler.ValidateSignature 基于 MessageExpiration 做权威判断）。
 func (c *Client) ValidatePaymentToken(ctx context.Context, token *PaymentToken) error {
 	if token == nil {
 		return errors.New("token is nil")
 	}
 
-	// 验证Token有效期
-	if time.Now().After(token.ExpiresAt) {
+	// 验证Token有效期：仅在已填充 ExpiresAt 时才基于该字段判断。
+	if !token.ExpiresAt.IsZero() && time.Now().After(token.ExpiresAt) {
 		return errors.New("token has expired")
 	}
 

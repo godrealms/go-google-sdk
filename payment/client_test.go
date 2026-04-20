@@ -287,6 +287,7 @@ func TestClientDecryptPaymentTokenCachesDecryptedToken(t *testing.T) {
 	leafKey := newECKeyPair(t)
 	encryptedToken := buildECv1Token(t, leafKey, rk, "merchant", map[string]any{
 		"paymentMethodType": "CARD",
+		"messageExpiration": msExp(time.Now().Add(time.Hour)),
 	})
 
 	store := cache.NewMemoryCache(time.Minute)
